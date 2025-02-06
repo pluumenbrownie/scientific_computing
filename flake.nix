@@ -108,6 +108,7 @@
           packages = [
             python
             pkgs.uv
+            pkgs.git-fame
           ];
           env =
             {
@@ -188,6 +189,7 @@
             packages = [
               virtualenv
               pkgs.uv
+              pkgs.git-fame
             ];
 
             env = {
