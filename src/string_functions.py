@@ -8,8 +8,11 @@ ti.init()
 # init boilerplate
 N: int = 1_000
 dx: float = 1/N
-amplitude = ti.field(float, shape = N)
-amplitude_previous = ti.field(float, shape = N)
+dt = 0.001
+c: int = 1
+amplitude = ti.field(float, shape = N)  # u[i,j]
+amplitude_previous = ti.field(float, shape = N)  # u[i,j-1]
+amplitude_next = ti.field(float, shape=N) # u[i,j+1]
 
 
 @ti.kernel
@@ -48,4 +51,16 @@ def init_string_3():
 
 @ti.kernel
 def update_string():
-    pass
+    """ 
+    update the string in one time step
+    """
+    constant = (c**2) * (dt**2) / (dx**2)
+    amplitude_next[0] = 0 # boundary condition
+    amplitude_next[N-1] = 0 # boundary condition
+    for i in range(1,N-1): 
+        change = amplitude[i+1] + amplitude[i-1] - 2 * amplitude[i]
+        amplitude_next[i] = 2 * amplitude[i] - amplitude_previous[i] + constant * change
+    
+    for i in range(N): # update the elements in the fields
+        amplitude_previous[i] = amplitude[i]
+        amplitude[i] = amplitude_next[i]
