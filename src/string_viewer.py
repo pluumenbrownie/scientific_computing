@@ -31,7 +31,7 @@ def update_gui():
 init_string_3()
 update_string()
         
-gui = ti.GUI("Vibrating String", res=resolution)
+gui = ti.GUI("Vibrating String", res=resolution) #type:ignore
 
 i = 0
 while gui.running:  
