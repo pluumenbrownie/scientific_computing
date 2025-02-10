@@ -83,6 +83,7 @@
       );
     packages = with pkgs; [
       git-fame
+      ffmpeg
     ];
   in {
     # Package a virtual environment as our main application.

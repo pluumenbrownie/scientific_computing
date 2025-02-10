@@ -29,6 +29,20 @@ def update_gui():
         j_pixel = tm.round(amplitude[i] * 128 + 128, dtype=int)
         pixels[i_pixel, j_pixel] = 0
 
+
+def save_video(frames: int, location: str):
+    init_string_3()
+    video_manager = ti.tools.VideoManager(output_dir=location, framerate=24, automatic_build=False, video_filename="test_string")
+    for _ in range(frames):
+        update_string()
+        update_gui()
+        img = pixels.to_numpy()
+        video_manager.write_frame(img)
+
+    video_manager.make_video(mp4=True, gif=False)
+    video_manager.clean_frames()
+
+
 def get_wave_points():
     width, height = resolution
     x_coords = np.linspace(0, 1, N) 
