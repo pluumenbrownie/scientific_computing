@@ -1,6 +1,7 @@
 import taichi as ti
 import taichi.math as tm
 import numpy as np
+import os
 from string_functions import init_string_1, init_string_2, init_string_3, update_string
 
 
@@ -33,14 +34,19 @@ def save_video(frames: int, location: str = "./local"):
         automatic_build=False,
         video_filename="test_string",
     )
-    gui = ti.GUI("Vibrating String", res=resolution, show_gui=False)  # type:ignore
+    gui = ti.GUI("Saving private String", res=resolution, show_gui=False)  # type:ignore
     for _ in range(frames):
         update_string()
         update_gui(gui)
         video_manager.write_frame(gui.get_image())
 
     video_manager.make_video(mp4=True, gif=False)
-    video_manager.clean_frames()
+    # video_manager.clean_frames() is known to be broken https://github.com/taichi-dev/taichi/issues/6936
+    frame_folder = location + "/frames"
+    for fn in os.listdir(frame_folder):
+        if fn.endswith('.png'):
+            os.remove(frame_folder + '/' + fn) 
+    os.rmdir(frame_folder)
 
 
 def get_wave_points():
