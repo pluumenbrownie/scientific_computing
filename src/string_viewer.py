@@ -66,6 +66,24 @@ def save_video(
     os.rmdir(frame_folder)
 
 
+def save_frames(frames: int | list[int], init_fn: Callable, name: str, location: str = "./local"):
+    """
+    Saves the given frames from a given simulation to png's. 
+    """
+    if isinstance(frames, int):
+        frames = [frames]
+
+    init_fn()
+    gui = ti.GUI("Saving private String", res=resolution, show_gui=False)  # type:ignore
+
+    for i in range(max(frames)+1):
+        update_string()
+        update_gui(gui)
+        if i in frames:
+            frames.remove(i)
+            gui.show(f"{location}/{name}_{i:06d}.png")
+
+
 def get_wave_points():
     x_coords = np.linspace(0, 1, N)
     y_coords = 0.5 + amplitude.to_numpy() * 0.2
@@ -83,4 +101,5 @@ def run_gui():
 
 
 if __name__ == "__main__":
-    run_gui()
+    # run_gui()
+    save_frames([0, 100, 200], init_string_3, "string_3")
