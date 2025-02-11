@@ -10,8 +10,8 @@ N: int = 1_000
 dx: float = 1/N
 dt = 0.001
 c: int = 1
-amplitude = ti.field(float, shape = N)  # u[i,j]
 amplitude_previous = ti.field(float, shape = N)  # u[i,j-1]
+amplitude = ti.field(float, shape = N)  # u[i,j]
 amplitude_next = ti.field(float, shape=N) # u[i,j+1]
 
 
