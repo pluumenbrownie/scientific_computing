@@ -32,6 +32,7 @@ def update_gui(gui: ti.GUI):
 def save_video(
     frames: int,
     init_fn: Callable,
+    name: str,
     location: str = "./local",
     step_size: int = 1,
     fps: int = 60,
@@ -47,7 +48,7 @@ def save_video(
         output_dir=location,
         framerate=fps,
         automatic_build=False,
-        video_filename="test_string",
+        video_filename=name,
     )
     gui = ti.GUI("Saving private String", res=resolution, show_gui=False)  # type:ignore
     for _ in range(frames):
