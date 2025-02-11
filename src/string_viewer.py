@@ -36,6 +36,12 @@ def save_video(
     step_size: int = 1,
     fps: int = 60,
 ):
+    """
+    Save a simulation of a string to an mp4 video.
+    ```
+    save_video(400, init_string_1, step_size=4)
+    ```
+    """
     init_fn()
     video_manager = ti.tools.VideoManager(
         output_dir=location,
@@ -76,5 +82,4 @@ def run_gui():
 
 
 if __name__ == "__main__":
-    # run_gui()
-    save_video(400, init_string_1, step_size=4)
+    run_gui()
