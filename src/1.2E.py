@@ -14,8 +14,8 @@ times = [0, 0.001, 0.01, 0.1, 1.0]  # different times
 
 # Initialize grid
 c = np.zeros((N+1, N+1))  # the boundaries
-c[:, -1] = 1  # top boundary (y = 1)
-c[:, 0] = 0   # bottom boundary (y = 0)
+c[:, -1] = 1  # top boundary
+c[:, 0] = 0   # bottom boundary
 
 def update_concentration(c):
     c_new = np.copy(c)
@@ -36,6 +36,7 @@ for step in range(num_steps):
     if step % 100 == 0:
         c_results.append(np.copy(c))
 
+### there is something wrong here but i cannot see it
 def analytical_solution(x, t, D):
     if t == 0:
         return np.zeros_like(x)
