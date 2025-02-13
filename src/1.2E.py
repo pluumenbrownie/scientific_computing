@@ -65,7 +65,7 @@ def analytical_solution(x, t, D):
     return sum_terms
 
 # Write data to a file
-np.savetxt("numerical_results.txt", c_results[-1])
+np.savetxt("local/numerical_results.txt", c_results[-1])
 
 # E: Plot comparison with analytical solution
 y_values = np.linspace(0, 1, N+1)
