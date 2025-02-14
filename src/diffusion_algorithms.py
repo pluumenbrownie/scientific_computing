@@ -9,6 +9,7 @@ ti.init(arch=ti.cpu)  # change this if you have gpu
 # Parameters
 D = 1.0  # diffusion coefficient
 N = 50  # gridpoints
+OMEGA = 1.8  # relaxation constant
 dx = 1.0 / N  # gridspacing
 dt = 0.25 * dx**2 / D  # stability condition
 total_time = 1.0  # total simulation time
@@ -50,15 +51,15 @@ def init_concentration():
 @ti.func
 def neighbourhood_values(i: int, j: int, field) -> float:
     """
-    Get the combined values of the four neighbours of the given cell, 
+    Get the combined values of the four neighbours of the given cell,
     using boundary conditions.
     """
     return (
-            field[pbi(i - 1), j]
-            + field[pbi(i + 1), j]
-            + field[pbi(i), j - 1]
-            + field[pbi(i), j + 1]
-        )
+        field[pbi(i - 1), j]
+        + field[pbi(i + 1), j]
+        + field[pbi(i), j - 1]
+        + field[pbi(i), j + 1]
+    )
 
 
 @ti.func
@@ -151,6 +152,39 @@ def run_gauss_seidel(threshold: float = 1e-5):
     run_gui(scale=10)
 
 
+@ti.kernel
+def solve_succesive_over_relaxation():
+    copy_into_difference()
+    for v in black_tiles:
+        i, j = int(black_tiles[v][0]), int(black_tiles[v][1])
+        if j == 0 or j >= N - 1:
+            continue
+        concentration[i, j] = (
+            OMEGA * 0.25 * neighbourhood_values(i, j, concentration)
+            + (1 - OMEGA) * concentration[i, j]
+        )
+
+    for v in white_tiles:
+        i, j = int(white_tiles[v][0]), int(white_tiles[v][1])
+        if j == 0 or j >= N - 1:
+            continue
+        concentration[i, j] = (
+            OMEGA * 0.25 * neighbourhood_values(i, j, concentration)
+            + (1 - OMEGA) * concentration[i, j]
+        )
+    calculate_differences()
+
+
+def run_SOR(threshold: float = 1e-5):
+    init_checkerboard()
+    init_concentration()
+    solve_succesive_over_relaxation()
+    while c_difference.to_numpy().max() > threshold:
+        solve_succesive_over_relaxation()
+    run_gui(scale=10)
+
+
 if __name__ == "__main__":
     # run_jacobi()
-    run_gauss_seidel()
+    # run_gauss_seidel()
+    run_SOR()
