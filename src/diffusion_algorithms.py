@@ -105,47 +105,49 @@ def run_jacobi(threshold: float = 1e-5):
 
 @ti.kernel
 def init_checkerboard():
+    amount = 0
     for i, j in concentration:
+    # for i, j in np.ndindex(concentration.shape):
         if i%2==j%2:
-            white_tiles[j//2 + ti.round(i * N/2 +0.1, dtype=int)] = ti.Vector([i, j])
+            white_tiles[j//2 + ti.ceil(i * N/2, dtype=int)] = ti.Vector([i, j])
+            amount += 1
         else:
-            black_tiles[j//2 + ti.round(i * N/2 +0.1, dtype=int)] = ti.Vector([i, j])
+            black_tiles[j//2 + ti.floor(i * N/2, dtype=int)] = ti.Vector([i, j])
 
 
 @ti.kernel
 def solve_gauss_seidel():
     # reset_boundary()
     for v in black_tiles:
-        i, j = int(white_tiles[v][0]), int(white_tiles[v][1])
+        i, j = int(black_tiles[v][0]), int(black_tiles[v][1])
         if j == 0 or j >= N-1:
             continue
-        concentration[i, j] = 0.5
-        # concentration[i, j] = 0.25 * (
-        #     concentration[pbi(i - 1), j]
-        #     + concentration[pbi(i + 1), j]
-        #     + concentration[pbi(i), j - 1]
-        #     + concentration[pbi(i), j + 1]
-        # )
+        # concentration[i, j] = 0.5
+        concentration[i, j] = 0.25 * (
+            concentration[pbi(i - 1), j]
+            + concentration[pbi(i + 1), j]
+            + concentration[pbi(i), j - 1]
+            + concentration[pbi(i), j + 1]
+        )
 
     for v in white_tiles:
         i, j = int(white_tiles[v][0]), int(white_tiles[v][1])
         if j == 0 or j >= N-1:
             continue
-        concentration[i, j] = 1.0
-        # concentration[i, j] = 0.25 * (
-        #     concentration[pbi(i - 1), j]
-        #     + concentration[pbi(i + 1), j]
-        #     + concentration[pbi(i), j - 1]
-        #     + concentration[pbi(i), j + 1]
-        # )
+        # concentration[i, j] = 1.0
+        concentration[i, j] = 0.25 * (
+            concentration[pbi(i - 1), j]
+            + concentration[pbi(i + 1), j]
+            + concentration[pbi(i), j - 1]
+            + concentration[pbi(i), j + 1]
+        )
     copy_into_difference()
     calculate_differences()
 
 
 def run_gauss_seidel(threshold: float = 1e-5):
     init_checkerboard()
-
-    # init_concentration()
+    init_concentration()
     
     solve_gauss_seidel()
     # # while c_difference.to_numpy().max() > threshold:
