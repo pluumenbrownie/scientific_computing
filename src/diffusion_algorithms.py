@@ -1,5 +1,4 @@
 import numpy as np
-from scipy.special import erfc
 import taichi as ti
 import math as mt
 
@@ -9,7 +8,7 @@ ti.init(arch=ti.cpu)  # change this if you have gpu
 
 # Parameters
 D = 1.0  # diffusion coefficient
-N = 5  # gridpoints
+N = 50  # gridpoints
 dx = 1.0 / N  # gridspacing
 dt = 0.25 * dx**2 / D  # stability condition
 total_time = 1.0  # total simulation time
@@ -42,10 +41,24 @@ def init_concentration():
     for i, j in concentration:
         if j == 0:  # boundary condition
             concentration[i, j] = 0
-        elif j == N:  # boundary condition
+        elif j == N - 1:  # boundary condition
             concentration[i, j] = 1
         else:
             concentration[i, j] = 0
+
+
+@ti.func
+def neighbourhood_values(i: int, j: int, field) -> float:
+    """
+    Get the combined values of the four neighbours of the given cell, 
+    using boundary conditions.
+    """
+    return (
+            field[pbi(i - 1), j]
+            + field[pbi(i + 1), j]
+            + field[pbi(i), j - 1]
+            + field[pbi(i), j + 1]
+        )
 
 
 @ti.func
@@ -58,12 +71,9 @@ def copy_into_difference():
 def solve_jacobi():
     copy_into_difference()
     for i, j in concentration:
-        concentration[i, j] = 0.25 * (
-            c_difference[pbi(i - 1), j]
-            + c_difference[pbi(i + 1), j]
-            + c_difference[pbi(i), j - 1]
-            + c_difference[pbi(i), j + 1]
-        )
+        if j == 0 or j >= N - 1:
+            continue
+        concentration[i, j] = 0.25 * neighbourhood_values(i, j, c_difference)
     reset_boundary()
     calculate_differences()
 
@@ -107,53 +117,38 @@ def run_jacobi(threshold: float = 1e-5):
 def init_checkerboard():
     amount = 0
     for i, j in concentration:
-    # for i, j in np.ndindex(concentration.shape):
-        if i%2==j%2:
-            white_tiles[j//2 + ti.ceil(i * N/2, dtype=int)] = ti.Vector([i, j])
+        # for i, j in np.ndindex(concentration.shape):
+        if i % 2 == j % 2:
+            white_tiles[j // 2 + ti.ceil(i * N / 2, dtype=int)] = ti.Vector([i, j])
             amount += 1
         else:
-            black_tiles[j//2 + ti.floor(i * N/2, dtype=int)] = ti.Vector([i, j])
+            black_tiles[j // 2 + ti.floor(i * N / 2, dtype=int)] = ti.Vector([i, j])
 
 
 @ti.kernel
 def solve_gauss_seidel():
-    # reset_boundary()
+    copy_into_difference()
     for v in black_tiles:
         i, j = int(black_tiles[v][0]), int(black_tiles[v][1])
-        if j == 0 or j >= N-1:
+        if j == 0 or j >= N - 1:
             continue
-        # concentration[i, j] = 0.5
-        concentration[i, j] = 0.25 * (
-            concentration[pbi(i - 1), j]
-            + concentration[pbi(i + 1), j]
-            + concentration[pbi(i), j - 1]
-            + concentration[pbi(i), j + 1]
-        )
+        concentration[i, j] = 0.25 * neighbourhood_values(i, j, concentration)
 
     for v in white_tiles:
         i, j = int(white_tiles[v][0]), int(white_tiles[v][1])
-        if j == 0 or j >= N-1:
+        if j == 0 or j >= N - 1:
             continue
-        # concentration[i, j] = 1.0
-        concentration[i, j] = 0.25 * (
-            concentration[pbi(i - 1), j]
-            + concentration[pbi(i + 1), j]
-            + concentration[pbi(i), j - 1]
-            + concentration[pbi(i), j + 1]
-        )
-    copy_into_difference()
+        concentration[i, j] = 0.25 * neighbourhood_values(i, j, concentration)
     calculate_differences()
 
 
 def run_gauss_seidel(threshold: float = 1e-5):
     init_checkerboard()
     init_concentration()
-    
     solve_gauss_seidel()
-    # # while c_difference.to_numpy().max() > threshold:
-    # #     solve_gauss_seidel()
-    # #     break
-    run_gui(scale=30)
+    while c_difference.to_numpy().max() > threshold:
+        solve_gauss_seidel()
+    run_gui(scale=10)
 
 
 if __name__ == "__main__":
