@@ -6,7 +6,7 @@ ti.init()
 
 
 # init boilerplate
-N: int = 1_000
+N: int = 1000
 dx: float = 1/N
 dt = 0.001
 c: int = 1
@@ -64,3 +64,15 @@ def update_string():
     for i in range(N): # update the elements in the fields
         amplitude_previous[i] = amplitude[i]
         amplitude[i] = amplitude_next[i]
+
+def run_simulation(func):
+    """
+    initialize the string with given initial condition
+    and update the string
+    """
+    func()
+    result = []
+    for i in range(N):
+        update_string()
+        result.append(amplitude.to_numpy())
+    return result

@@ -1,15 +1,16 @@
 from typing import Callable
 import taichi as ti
 import numpy as np
+import matplotlib.pyplot as plt
 import os
-from string_functions import init_string_1, init_string_2, init_string_3, update_string
+from string_functions import init_string_1, init_string_2, init_string_3, update_string, run_simulation
 
 
 ti.init()
 
 
 # init boilerplate
-N: int = 1_000
+N: int = 1000
 dx: float = 1 / N
 dt: float = 0.001
 amplitude_next = ti.field(float, shape=N)
@@ -47,7 +48,7 @@ def save_video(
     video_manager = ti.tools.VideoManager(
         output_dir=location,
         framerate=fps,
-        automatic_build=False,
+        automatic_build=True,
         video_filename=name,
     )
     gui = ti.GUI("Saving private String", res=resolution, show_gui=False)  # type:ignore
@@ -59,7 +60,7 @@ def save_video(
 
     video_manager.make_video(mp4=True, gif=False)
     # video_manager.clean_frames() is known to be broken https://github.com/taichi-dev/taichi/issues/6936
-    frame_folder = location + "/frames"
+    frame_folder = os.path.join(location, "frames")
     for fn in os.listdir(frame_folder):
         if fn.endswith(".png"):
             os.remove(frame_folder + "/" + fn)
@@ -81,7 +82,7 @@ def save_frames(frames: int | list[int], init_fn: Callable, name: str, location:
         update_gui(gui)
         if i in frames:
             frames.remove(i)
-            gui.show(f"{location}/{name}_{i:06d}.png")
+            gui.show(f"{name}_{i:06d}.png")
 
 
 def get_wave_points():
@@ -99,7 +100,34 @@ def run_gui():
         update_gui(gui)
         gui.show()
 
+def plot_figure(result):
+    x = np.linspace(0, 1, N)
+    time = [100, 500, 900]
+    fig, axes = plt.subplots(1, 3, figsize=(18, 5))  # 1 row, 3 columns
+
+    for ax, t_idx in zip(axes, time):
+        for (key, data) in result.items():
+            ax.plot(x, data[t_idx], label=f'{key}')
+        ax.set_title(f'Time step {t_idx}')
+        ax.set_xlabel('x')
+        ax.set_ylabel('Amplitude')
+        ax.set_ylim([-1.2, 1.2])
+        ax.legend()
+        ax.grid()
+
+    plt.tight_layout()
+    plt.savefig("local/1.1b.png", dpi=300)
+    plt.show()
+
 
 if __name__ == "__main__":
     # run_gui()
-    save_frames([0, 100, 200], init_string_3, "string_3")
+    # save_frames([0, 100, 200], init_string_3, "string_3")
+    # save_video(50, init_string_3, name = "string3", step_size=4)
+    results = {
+    'initial condition 1': run_simulation(init_string_1),
+    'initial condition 2': run_simulation(init_string_2),
+    'initial condition 3': run_simulation(init_string_3),}
+    plot_figure(results)
+
+    
