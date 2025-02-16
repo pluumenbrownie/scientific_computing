@@ -60,9 +60,7 @@ class BaseIteration:
         return i
 
     @ti.func
-    def neighbourhood_values(
-        self, i: int, j: int, field: ti.ScalarField | ti.MatrixField
-    ) -> float:
+    def neighbourhood_values(self, i: int, j: int, field) -> float:
         """
         Get the combined values of the four neighbours of the given cell,
         using boundary conditions.
@@ -99,10 +97,10 @@ class BaseIteration:
     def calculate_differences(self):
         """
         Calculate the magnitude of the changes made in this step.
-         
-        Sets the values in `self.c_difference` to the absolute difference 
-        between the current values of `self.c_difference` and 
-        the values of `self.concentration.` Must run `self.copy_into_difference()` 
+
+        Sets the values in `self.c_difference` to the absolute difference
+        between the current values of `self.c_difference` and
+        the values of `self.concentration.` Must run `self.copy_into_difference()`
         before changes are made to `self.concentration` to be usefull.
         """
         for i, j in self.c_difference:
@@ -116,8 +114,8 @@ class BaseIteration:
         Enforce the values of the boundary conditions.
         """
         for i in range(self.N):
-            self.concentration[i, 0] = 1.0
-            self.concentration[i, self.N - 1] = 0.0
+            self.concentration[i, 0] = 0.0
+            self.concentration[i, self.N - 1] = 1.0
 
     def gui(self, scale: int = 10):
         """
@@ -149,11 +147,12 @@ class Jacobi(BaseIteration):
     of the previous state.
 
     # Inputs
-    - `threshold`: The minimal amount change needed for `self.run()` to keep 
+    - `threshold`: The minimal amount change needed for `self.run()` to keep
     iterating. Default `threshold = 1e-5`
-    - `N`: The size of the grid. Default `N = 50` 
+    - `N`: The size of the grid. Default `N = 50`
 
     """
+
     @ti.kernel
     def solve(self):
         self.copy_into_difference()
@@ -163,21 +162,21 @@ class Jacobi(BaseIteration):
             self.concentration[i, j] = 0.25 * self.neighbourhood_values(
                 i, j, self.c_difference
             )
-        self.reset_boundary()
         self.calculate_differences()
 
 
 class GaussSeidel(BaseIteration):
     """
-    Solve the diffusion equation by taking the neighbouring values from the 
+    Solve the diffusion equation by taking the neighbouring values from the
     current state in place. Uses a checkerboard pattern to prevent race
-    conditions. 
+    conditions.
 
     # Inputs
-    - `threshold`: The minimal amount change needed for `self.run()` to keep 
+    - `threshold`: The minimal amount change needed for `self.run()` to keep
     iterating. Default `threshold = 1e-5`
-    - `N`: The size of the grid. Default `N = 50` 
+    - `N`: The size of the grid. Default `N = 50`
     """
+
     def __init__(self, N: int = DEFAULT_N, threshold: float = THRESHOLD) -> None:
         super().__init__(N, threshold)
         self.white_tiles = ti.Vector.field(n=2, dtype=int, shape=(mt.ceil(N**2 / 2)))
@@ -223,16 +222,17 @@ class GaussSeidel(BaseIteration):
 class SuccessiveOverRelaxation(GaussSeidel):
     """
     Solve the diffusion equation by proportionally taking the neighbouring
-    values from the current state and the current value in place. Uses a 
-    checkerboard pattern to prevent race conditions. For "over relaxation", 
+    values from the current state and the current value in place. Uses a
+    checkerboard pattern to prevent race conditions. For "over relaxation",
     the value `self.omega` can be made greater than `1,0`.
 
     # Inputs
-    - `threshold`: The minimal amount change needed for `self.run()` to keep 
+    - `threshold`: The minimal amount change needed for `self.run()` to keep
     iterating. Default `threshold = 1e-5`
-    - `N`: The size of the grid. Default `N = 50` 
+    - `N`: The size of the grid. Default `N = 50`
     - `omega`: The relaxation constant. Default `omega = 1.8`
     """
+
     def __init__(
         self,
         omega: float = DEFAULT_OMEGA,
@@ -266,7 +266,10 @@ class SuccessiveOverRelaxation(GaussSeidel):
 
 
 if __name__ == "__main__":
-    sov = SuccessiveOverRelaxation()
-    sov_amount = sov.run()
-    print(f"{sov_amount = }")
-    sov.gui()
+    # sov = SuccessiveOverRelaxation()
+    # sov_amount = sov.run()
+    # print(f"{sov_amount = }")
+    # sov.gui()
+    jacobe = Jacobi()
+    jacobe.run()
+    jacobe.gui()
