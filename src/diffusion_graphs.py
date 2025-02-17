@@ -16,6 +16,8 @@ dt = 0.15 * dx**2 / DIFFUSION_CONSTANT  # stability condition
 total_time = 1.0  # total simulation time
 num_steps = int(total_time / dt)  # number of time steps
 times = [0, 0.001, 0.01, 0.1, 1.0]  # different times
+threshold = [1e-2,1e-3,1e-4,1e-5,1e-6,1e-7,1e-8]
+omega = np.linspace(0.5,1.95,10) # typical value for omega
 
 
 def analytical_solution(x: NDArray, t: float):
@@ -32,7 +34,7 @@ def analytical_solution(x: NDArray, t: float):
 def compare_to_analytical():
     y_values = np.linspace(0, 1, N)
     fig, ax = plt.subplots()
-    analytical = analytical_solution(y_values, 1.0)
+    analytical = analytical_solution(y_values, 1)
     ax.plot(y_values, analytical, "--", label="Analytical t=1.0")
     
     jacobi = Jacobi(N=N)
@@ -84,9 +86,67 @@ def over_relaxation_variable():
     plt.show()
     plt.close()
 
+def convergence_iteration ():
+    jacobi_list = []
+    gauss_list = []
+    sov_list = []
+
+    for th in threshold:
+        print("start simulation for jacobi")
+        jacobi = Jacobi(N=N, threshold = th)
+        iteration = jacobi.run()
+        jacobi_list.append(iteration)
+    
+    for th in threshold:
+        print("start simualtion for GaussSeidel")
+        gauss = GaussSeidel(N=N, threshold = th)
+        iteration = gauss.run()
+        gauss_list.append(iteration)
+    
+    for th in threshold:
+        print("start simulation for SOV")
+        sov = SuccessiveOverRelaxation(omega = 1.8, N=N, threshold = th)
+        iteration = sov.run()
+        sov_list.append(iteration)
+    
+    print("finish simulation")
+    return jacobi_list, gauss_list, sov_list
+
+def compare_omega(omega):
+    sov_list = []
+    for o in omega:
+        sov = SuccessiveOverRelaxation(omega = o, N=N, threshold = 1e-5)
+        iteration = sov.run()
+        sov_list.append(iteration)
+    return sov_list
+
+
+def plot_convergence_ite (jacobi, gauss, sov):
+    threshold_log = -np.log10(threshold) # convert to log scale
+    plt.plot(threshold_log, jacobi, "o-", color = "red", label = "Jacobi")
+    plt.plot(threshold_log, gauss, "o-", color = "green", label = "Gauss-Seidel")
+    plt.plot(threshold_log, sov, "o-", color = "blue", label = "SOV")
+    plt.legend()
+    plt.title("Threshold value vs. Iteration")
+    plt.xlabel("P (threshold value = 10^(-P))")
+    plt.ylabel("Iterations")
+    plt.grid()
+    plt.savefig("local/threshold_iterations.png", dpi=300)
+    plt.show()
+
+
+def plot_omega (sov):
+    plt.plot(omega, sov, 'o-')
+    plt.xlabel("omega value")
+    plt.ylabel("iteration")
+    plt.title("SOV iteration with different omega values")
+    plt.grid()
+    plt.show()
+
 
 if __name__ == "__main__":
-
-
-
-    over_relaxation_variable()
+    # compare_to_analytical()
+    #jacobi, gauss, sov = convergence_iteration()
+    #plot_convergence_ite(jacobi,gauss, sov)
+    sov = compare_omega(omega)
+    plot_omega(sov)
