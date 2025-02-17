@@ -170,6 +170,18 @@ def plot_convergence_delta(jacobi_data, gauss_data, sov_data):
     plt.savefig("local/convergence_delta.png", dpi=300)
     plt.show()
 
+    """ Wait till 1.6J is written then this code can work
+    # Plot 
+    optimal_omega_no_obstacles = find_optimal_omega()
+    print(f"Optimal ω without obstacles: {optimal_omega_no_obstacles}")
+
+# Add obstacles and find new optimal omega
+    sor_with_obstacles = SuccessiveOverRelaxation(N=N, omega=1.8)
+    sor_with_obstacles.add_rectangle(15, 25, 15, 25)
+    optimal_omega_with_obstacles = find_optimal_omega()
+    print(f"Optimal ω with obstacles: {optimal_omega_with_obstacles}")"""
+
+
 
 if __name__ == "__main__":
     # compare_to_analytical()
