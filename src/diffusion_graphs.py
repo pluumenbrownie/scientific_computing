@@ -4,6 +4,9 @@ from numpy.typing import NDArray
 from scipy.special import erfc
 import taichi as ti
 from diffusion_algorithms import Jacobi, GaussSeidel, SuccessiveOverRelaxation
+from alive_progress import alive_bar
+
+ti.init()
 
 
 DIFFUSION_CONSTANT = 1.0
@@ -53,7 +56,37 @@ def compare_to_analytical():
     ax.set_title("Comparison of numerical and analytical solutions")
     plt.savefig("local/numerical_analytical.png", dpi=300)
     plt.show()
+    plt.close()
+
+
+def over_relaxation_variable():
+    """
+    Show iteration count for differing values of omega and different
+    grid sizes.
+    """
+    plot_x = np.linspace(1.6, 1.99, 50)
+    sizes = [50, 60, 70, 80, 90]
+    with alive_bar(len(sizes) * len(plot_x)) as bar:
+        for grid_size in sizes:
+            bar.title(f"Size: {grid_size}, {sizes.index(grid_size) + 1}/{len(sizes)}")
+            plot_y = []
+            for omega in plot_x:
+                sov = SuccessiveOverRelaxation(omega=omega, N=grid_size)
+                plot_y.append(sov.run())
+                bar()
+            
+            plt.plot(plot_x, plot_y, "o", label=f"N={grid_size}")
+    plt.legend()
+    plt.title("SOV iterations for differing $\\omega$")
+    plt.xlabel("$\\omega$")
+    plt.ylabel("Iterations")
+    plt.savefig("local/relaxation_variable.png")
+    plt.show()
+    plt.close()
 
 
 if __name__ == "__main__":
-    compare_to_analytical()
+
+
+
+    over_relaxation_variable()
