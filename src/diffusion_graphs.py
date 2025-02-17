@@ -86,31 +86,31 @@ def over_relaxation_variable():
     plt.show()
     plt.close()
 
-def convergence_iteration ():
-    jacobi_list = []
-    gauss_list = []
-    sov_list = []
+def convergence_iteration():
+    jacobi_delta = []
+    gauss_delta = []
+    sov_delta = []
 
     for th in threshold:
-        print("start simulation for jacobi")
-        jacobi = Jacobi(N=N, threshold = th)
-        iteration = jacobi.run()
-        jacobi_list.append(iteration)
+        print("Start simulation for Jacobi")
+        jacobi = Jacobi(N=N, threshold=th)
+        jacobi_deltas = jacobi.run()  # Return delta per iteration
+        jacobi_delta.append(jacobi_deltas)
     
     for th in threshold:
-        print("start simualtion for GaussSeidel")
-        gauss = GaussSeidel(N=N, threshold = th)
-        iteration = gauss.run()
-        gauss_list.append(iteration)
+        print("Start simulation for Gauss-Seidel")
+        gauss = GaussSeidel(N=N, threshold=th)
+        gauss_deltas = gauss.run()
+        gauss_delta.append(gauss_deltas)
     
     for th in threshold:
-        print("start simulation for SOV")
-        sov = SuccessiveOverRelaxation(omega = 1.8, N=N, threshold = th)
-        iteration = sov.run()
-        sov_list.append(iteration)
+        print("Start simulation for SOV")
+        sov = SuccessiveOverRelaxation(omega=1.8, N=N, threshold=th)
+        sov_deltas = sov.run()
+        sov_delta.append(sov_deltas)
     
-    print("finish simulation")
-    return jacobi_list, gauss_list, sov_list
+    print("Finish simulation")
+    return jacobi_delta, gauss_delta, sov_delta
 
 def compare_omega(omega):
     sov_list = []
@@ -122,7 +122,7 @@ def compare_omega(omega):
 
 
 def plot_convergence_ite (jacobi, gauss, sov):
-    threshold_log = -np.log10(threshold) # convert to log scale
+    threshold_log = -np.log10(threshold) # log scale
     plt.plot(threshold_log, jacobi, "o-", color = "red", label = "Jacobi")
     plt.plot(threshold_log, gauss, "o-", color = "green", label = "Gauss-Seidel")
     plt.plot(threshold_log, sov, "o-", color = "blue", label = "SOV")
@@ -143,6 +143,33 @@ def plot_omega (sov):
     plt.grid()
     plt.show()
 
+def plot_convergence_delta(jacobi_data, gauss_data, sov_data):
+    """
+    Plots the convergence measure delta against iterations k for Jacobi, Gauss-Seidel, and SOR.
+    """
+    plt.figure(figsize=(10, 6))
+
+    # Plot Jacobi method
+    for j_data in jacobi_data:
+        plt.plot(range(len(j_data)), j_data, label="Jacobi", linestyle="dashed", color="red")
+
+    # Plot Gauss-Seidel method
+    for g_data in gauss_data:
+        plt.plot(range(len(g_data)), g_data, label="Gauss-Seidel", linestyle="dotted", color="green")
+
+    # Plot SOR method
+    for s_data in sov_data:
+        plt.plot(range(len(s_data)), s_data, label="SOR (ω=1.8)", color="blue")
+
+    plt.yscale("log")  # Logarithmic scale
+    plt.xlabel("Iterations (k)")
+    plt.ylabel("Convergence measure δ")
+    plt.title("Convergence of Iterative Methods")
+    plt.legend()
+    plt.grid()
+    plt.savefig("local/convergence_delta.png", dpi=300)
+    plt.show()
+
 
 if __name__ == "__main__":
     # compare_to_analytical()
@@ -150,3 +177,5 @@ if __name__ == "__main__":
     #plot_convergence_ite(jacobi,gauss, sov)
     sov = compare_omega(omega)
     plot_omega(sov)
+    jacobi_data, gauss_data, sov_data = convergence_iteration()
+    plot_convergence_delta(jacobi_data, gauss_data, sov_data)

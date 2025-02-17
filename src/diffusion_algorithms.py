@@ -24,16 +24,20 @@ class BaseIteration:
         self.c_difference = ti.field(float, shape=(N, N))
         self.init()
 
-    def run(self) -> int:
-        """
-        Run this solving algorithm until the changes are smaller then `self.threshold`.
+    def run(self) -> list:
+        """ 
+        Run this solving algorithm until the changes are smaller then `self.threshold`
         """
         self.solve()
         runs = 1
-        while self.c_difference.to_numpy().max() > self.threshold:
+        delta_values = [self.c_difference.to_numpy().max()]
+
+        while delta_values[-1] > self.threshold:
             self.solve()
             runs += 1
-        return runs
+            delta_values.append(self.c_difference.to_numpy().max())  # Store delta for plotting
+
+        return delta_values
 
     def init(self):
         """
