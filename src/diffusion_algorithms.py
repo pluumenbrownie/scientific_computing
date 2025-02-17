@@ -39,6 +39,12 @@ class BaseIteration:
 
         return delta_values
 
+    def add_rectangle(self, x1, x2, y1, y2):
+        """Marks a rectangular region."""
+        for i in range(x1, x2):
+            for j in range(y1, y2):
+                self.objects[i, j] = 1
+
     def init(self):
         """
         Fill all of the fields in `self` with the required initial values.
@@ -161,6 +167,9 @@ class Jacobi(BaseIteration):
     def solve(self):
         self.copy_into_difference()
         for i, j in self.concentration:
+            if self.objects[i, j] == 1:
+                self.concentration[i, j] = 0
+                continue
             if j == 0 or j >= self.N - 1:
                 continue
             self.concentration[i, j] = 0.25 * self.neighbourhood_values(
@@ -207,19 +216,21 @@ class GaussSeidel(BaseIteration):
         self.copy_into_difference()
         for v in self.black_tiles:
             i, j = int(self.black_tiles[v][0]), int(self.black_tiles[v][1])
+            if self.objects[i, j] == 1:  # Object then set to 0
+                self.concentration[i, j] = 0
+                continue
             if j == 0 or j >= self.N - 1:
                 continue
-            self.concentration[i, j] = 0.25 * self.neighbourhood_values(
-                i, j, self.concentration
-            )
+            self.concentration[i, j] = 0.25 * self.neighbourhood_values(i, j, self.concentration)
 
         for v in self.white_tiles:
             i, j = int(self.white_tiles[v][0]), int(self.white_tiles[v][1])
+            if self.objects[i, j] == 1:  # Object then set to 0
+                self.concentration[i, j] = 0
+                continue
             if j == 0 or j >= self.N - 1:
                 continue
-            self.concentration[i, j] = 0.25 * self.neighbourhood_values(
-                i, j, self.concentration
-            )
+            self.concentration[i, j] = 0.25 * self.neighbourhood_values(i, j, self.concentration)
         self.calculate_differences()
 
 
@@ -251,6 +262,9 @@ class SuccessiveOverRelaxation(GaussSeidel):
         self.copy_into_difference()
         for v in self.black_tiles:
             i, j = int(self.black_tiles[v][0]), int(self.black_tiles[v][1])
+            if self.objects[i, j] == 1:  # Object then set to 0
+                self.concentration[i, j] = 0
+                continue
             if j == 0 or j >= self.N - 1:
                 continue
             self.concentration[i, j] = (
@@ -260,6 +274,9 @@ class SuccessiveOverRelaxation(GaussSeidel):
 
         for v in self.white_tiles:
             i, j = int(self.white_tiles[v][0]), int(self.white_tiles[v][1])
+            if self.objects[i, j] == 1:  # Object then set to 0
+                self.concentration[i, j] = 0
+                continue
             if j == 0 or j >= self.N - 1:
                 continue
             self.concentration[i, j] = (
@@ -269,11 +286,29 @@ class SuccessiveOverRelaxation(GaussSeidel):
         self.calculate_differences()
 
 
+
 if __name__ == "__main__":
-    # sov = SuccessiveOverRelaxation()
+   """ # sov = SuccessiveOverRelaxation()
     # sov_amount = sov.run()
     # print(f"{sov_amount = }")
     # sov.gui()
     jacobe = Jacobi()
     jacobe.run()
-    jacobe.gui()
+    jacobe.gui()"""""
+    
+N = 50  # Grid size
+jacobi = Jacobi(N=N)
+jacobi.add_rectangle(20, 30, 20, 30)  # Add an obstacle
+jacobi.run()
+
+gauss = GaussSeidel(N=N)
+gauss.add_rectangle(10, 15, 10, 15)  # Add an obstacle
+gauss.run()
+
+sor = SuccessiveOverRelaxation(omega=1.8, N=N)
+sor.add_rectangle(25, 35, 25, 35)  # Another an obstacle
+sor.run()
+
+jacobi.gui()
+gauss.gui()
+sor.gui()
