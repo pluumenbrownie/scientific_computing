@@ -2,6 +2,7 @@ from typing import Callable
 import numpy as np
 import taichi as ti
 import math as mt
+from cell_type import CellTypes
 
 
 ti.init(arch=ti.cpu)  # change this if you have gpu
@@ -11,6 +12,7 @@ ti.init(arch=ti.cpu)  # change this if you have gpu
 DEFAULT_N = 50  # gridpoints
 DEFAULT_OMEGA = 1.8  # relaxation constant
 THRESHOLD = 1e-5
+Vec2 = ti.types.vector(2, float)
 
 
 @ti.data_oriented
@@ -20,22 +22,24 @@ class BaseIteration:
     def __init__(self, N: int = DEFAULT_N, threshold: float = THRESHOLD) -> None:
         self.threshold = threshold
         self.N = N
-        self.concentration = ti.field(float, shape=(N, N))
-        self.c_difference = ti.field(float, shape=(N, N))
+        self.concentration = ti.Vector.field(n=2, dtype=float, shape=(N, N))
+        self.c_difference = ti.Vector.field(n=2, dtype=float, shape=(N, N))
         self.init()
 
     def run(self) -> list:
-        """ 
+        """
         Run this solving algorithm until the changes are smaller then `self.threshold`
         """
         self.solve()
         runs = 1
-        delta_values = [self.c_difference.to_numpy().max()]
+        delta_values = [self.c_difference.to_numpy()[:, :, 0].max()]
 
         while delta_values[-1] > self.threshold:
             self.solve()
             runs += 1
-            delta_values.append(self.c_difference.to_numpy().max())  # Store delta for plotting
+            delta_values.append(
+                self.c_difference.to_numpy()[:, :, 0].max()
+            )  # Store delta for plotting
 
         return delta_values
 
@@ -43,7 +47,7 @@ class BaseIteration:
         """Marks a rectangular region."""
         for i in range(x1, x2):
             for j in range(y1, y2):
-                self.objects[i, j] = 1
+                self.concentration[i, j][1] = CellTypes.sink # type: ignore
 
     def init(self):
         """
@@ -76,11 +80,22 @@ class BaseIteration:
         using boundary conditions.
         """
         return (
-            field[self.pbi(i - 1), j]
-            + field[self.pbi(i + 1), j]
-            + field[self.pbi(i), j - 1]
-            + field[self.pbi(i), j + 1]
+            field[self.pbi(i - 1), j][0]
+            + field[self.pbi(i + 1), j][0]
+            + field[self.pbi(i), j - 1][0]
+            + field[self.pbi(i), j + 1][0]
         )
+
+    @ti.func
+    def static_cell(self, i: int, j: int):
+        """
+        Returns true if given cell should not be updated in the main update loop.
+        """
+        return (
+                j == 0
+                or j >= self.N - 1
+                or not self.concentration[i, j][1] == CellTypes.normal # type: ignore
+            )
 
     @ti.kernel
     def init_concentration(self):
@@ -89,11 +104,11 @@ class BaseIteration:
         """
         for i, j in self.concentration:
             if j == 0:
-                self.concentration[i, j] = 0
+                self.concentration[i, j] = Vec2(0.0, CellTypes.sink) # type: ignore
             elif j == self.N - 1:
-                self.concentration[i, j] = 1
+                self.concentration[i, j] = Vec2(1.0, CellTypes.normal) # type: ignore
             else:
-                self.concentration[i, j] = 0
+                self.concentration[i, j] = Vec2(0.0, CellTypes.normal) # type: ignore
 
     @ti.func
     def copy_into_difference(self):
@@ -114,8 +129,8 @@ class BaseIteration:
         before changes are made to `self.concentration` to be usefull.
         """
         for i, j in self.c_difference:
-            self.c_difference[i, j] = abs(
-                self.concentration[i, j] - self.c_difference[i, j]
+            self.c_difference[i, j][0] = abs(
+                self.concentration[i, j][0] - self.c_difference[i, j][0]
             )
 
     @ti.func
@@ -124,8 +139,8 @@ class BaseIteration:
         Enforce the values of the boundary conditions.
         """
         for i in range(self.N):
-            self.concentration[i, 0] = 0.0
-            self.concentration[i, self.N - 1] = 1.0
+            self.concentration[i, 0][0] = 0.0
+            self.concentration[i, self.N - 1][0] = 1.0
 
     def gui(self, scale: int = 10):
         """
@@ -137,7 +152,8 @@ class BaseIteration:
             f"Diffusion {self.N}x{self.N}",
             res=(scale * self.N, scale * self.N),  # type:ignore
         )
-        image = self.concentration.to_numpy()
+        # self.concentration.to_numpy().shape = (N, N, 2)
+        image = self.concentration.to_numpy()[:, :, 0]
 
         # scale image if necessary
         if not scale == 1:
@@ -167,12 +183,9 @@ class Jacobi(BaseIteration):
     def solve(self):
         self.copy_into_difference()
         for i, j in self.concentration:
-            if self.objects[i, j] == 1:
-                self.concentration[i, j] = 0
+            if self.static_cell(i, j):
                 continue
-            if j == 0 or j >= self.N - 1:
-                continue
-            self.concentration[i, j] = 0.25 * self.neighbourhood_values(
+            self.concentration[i, j][0] = 0.25 * self.neighbourhood_values(
                 i, j, self.c_difference
             )
         self.calculate_differences()
@@ -216,21 +229,19 @@ class GaussSeidel(BaseIteration):
         self.copy_into_difference()
         for v in self.black_tiles:
             i, j = int(self.black_tiles[v][0]), int(self.black_tiles[v][1])
-            if self.objects[i, j] == 1:  # Object then set to 0
-                self.concentration[i, j] = 0
+            if self.static_cell(i, j):
                 continue
-            if j == 0 or j >= self.N - 1:
-                continue
-            self.concentration[i, j] = 0.25 * self.neighbourhood_values(i, j, self.concentration)
+            self.concentration[i, j][0] = 0.25 * self.neighbourhood_values(
+                i, j, self.concentration
+            )
 
         for v in self.white_tiles:
             i, j = int(self.white_tiles[v][0]), int(self.white_tiles[v][1])
-            if self.objects[i, j] == 1:  # Object then set to 0
-                self.concentration[i, j] = 0
+            if self.static_cell(i, j):
                 continue
-            if j == 0 or j >= self.N - 1:
-                continue
-            self.concentration[i, j] = 0.25 * self.neighbourhood_values(i, j, self.concentration)
+            self.concentration[i, j][0] = 0.25 * self.neighbourhood_values(
+                i, j, self.concentration
+            )
         self.calculate_differences()
 
 
@@ -262,53 +273,47 @@ class SuccessiveOverRelaxation(GaussSeidel):
         self.copy_into_difference()
         for v in self.black_tiles:
             i, j = int(self.black_tiles[v][0]), int(self.black_tiles[v][1])
-            if self.objects[i, j] == 1:  # Object then set to 0
-                self.concentration[i, j] = 0
+            if self.static_cell(i, j):
                 continue
-            if j == 0 or j >= self.N - 1:
-                continue
-            self.concentration[i, j] = (
+            self.concentration[i, j][0] = (
                 self.omega * 0.25 * self.neighbourhood_values(i, j, self.concentration)
-                + (1 - self.omega) * self.concentration[i, j]
+                + (1 - self.omega) * self.concentration[i, j][0]
             )
 
         for v in self.white_tiles:
             i, j = int(self.white_tiles[v][0]), int(self.white_tiles[v][1])
-            if self.objects[i, j] == 1:  # Object then set to 0
-                self.concentration[i, j] = 0
+            if self.static_cell(i, j):
                 continue
-            if j == 0 or j >= self.N - 1:
-                continue
-            self.concentration[i, j] = (
+            self.concentration[i, j][0] = (
                 self.omega * 0.25 * self.neighbourhood_values(i, j, self.concentration)
-                + (1 - self.omega) * self.concentration[i, j]
+                + (1 - self.omega) * self.concentration[i, j][0]
             )
         self.calculate_differences()
 
 
-
 if __name__ == "__main__":
-   """ # sov = SuccessiveOverRelaxation()
+    # sov = SuccessiveOverRelaxation()
     # sov_amount = sov.run()
     # print(f"{sov_amount = }")
     # sov.gui()
-    jacobe = Jacobi()
-    jacobe.run()
-    jacobe.gui()"""""
-    
-N = 50  # Grid size
-jacobi = Jacobi(N=N)
-jacobi.add_rectangle(20, 30, 20, 30)  # Add an obstacle
-jacobi.run()
+    # jacobe = SuccessiveOverRelaxation()
+    # jacobe.add_rectangle(30, 35, 30, 35)
+    # jacobe.run()
+    # jacobe.gui()
 
-gauss = GaussSeidel(N=N)
-gauss.add_rectangle(10, 15, 10, 15)  # Add an obstacle
-gauss.run()
+    N = 50  # Grid size
+    jacobi = Jacobi(N=N)
+    jacobi.add_rectangle(20, 30, 20, 30)  # Add an obstacle
+    jacobi.run()
 
-sor = SuccessiveOverRelaxation(omega=1.8, N=N)
-sor.add_rectangle(25, 35, 25, 35)  # Another an obstacle
-sor.run()
+    gauss = GaussSeidel(N=N)
+    gauss.add_rectangle(10, 15, 10, 15)  # Add an obstacle
+    gauss.run()
 
-jacobi.gui()
-gauss.gui()
-sor.gui()
+    sor = SuccessiveOverRelaxation(omega=1.8, N=N)
+    sor.add_rectangle(25, 35, 25, 35)  # Another an obstacle
+    sor.run()
+
+    jacobi.gui()
+    gauss.gui()
+    sor.gui()
