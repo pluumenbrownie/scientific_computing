@@ -26,7 +26,7 @@ class BaseIteration:
         self.c_difference = ti.Vector.field(n=2, dtype=float, shape=(N, N))
         self.init()
 
-    def run(self) -> list:
+    def run(self) -> tuple[int, list[float]]:
         """
         Run this solving algorithm until the changes are smaller then `self.threshold`
         """
@@ -48,6 +48,12 @@ class BaseIteration:
         for i in range(x1, x2):
             for j in range(y1, y2):
                 self.concentration[i, j][1] = CellTypes.sink # type: ignore
+
+    def add_insulator(self, x1, x2, y1, y2):
+        """Marks a rectangular region."""
+        for i in range(x1, x2):
+            for j in range(y1, y2):
+                self.concentration[i, j][1] = CellTypes.blocker # type: ignore
 
     def init(self):
         """
@@ -74,17 +80,28 @@ class BaseIteration:
         return i
 
     @ti.func
-    def neighbourhood_values(self, i: int, j: int, field) -> float:
+    def average_neighbourhood_values(self, i: int, j: int, field) -> float:
         """
         Get the combined values of the four neighbours of the given cell,
         using boundary conditions.
         """
+        # neighbour_count = self.neighbour_nonblocking_count(i, j, field)
+        # assert neighbour_count == 4.0
         return (
             field[self.pbi(i - 1), j][0]
             + field[self.pbi(i + 1), j][0]
             + field[self.pbi(i), j - 1][0]
             + field[self.pbi(i), j + 1][0]
-        )
+        ) / self.neighbour_nonblocking_count(i, j, field)
+    
+    @ti.func 
+    def neighbour_nonblocking_count(self, i: int, j: int, field) -> float:
+        return 4 - ( 
+            int(field[self.pbi(i - 1), j][1] == CellTypes.blocker) # type: ignore
+            + int(field[self.pbi(i + 1), j][1] == CellTypes.blocker) # type: ignore
+            + int(field[self.pbi(i), j - 1][1] == CellTypes.blocker) # type: ignore
+            + int(field[self.pbi(i), j + 1][1] == CellTypes.blocker) # type: ignore
+        ) 
 
     @ti.func
     def static_cell(self, i: int, j: int):
@@ -106,7 +123,7 @@ class BaseIteration:
             if j == 0:
                 self.concentration[i, j] = Vec2(0.0, CellTypes.sink) # type: ignore
             elif j == self.N - 1:
-                self.concentration[i, j] = Vec2(1.0, CellTypes.normal) # type: ignore
+                self.concentration[i, j] = Vec2(1.0, CellTypes.source) # type: ignore
             else:
                 self.concentration[i, j] = Vec2(0.0, CellTypes.normal) # type: ignore
 
@@ -176,7 +193,6 @@ class Jacobi(BaseIteration):
     - `threshold`: The minimal amount change needed for `self.run()` to keep
     iterating. Default `threshold = 1e-5`
     - `N`: The size of the grid. Default `N = 50`
-
     """
 
     @ti.kernel
@@ -185,7 +201,7 @@ class Jacobi(BaseIteration):
         for i, j in self.concentration:
             if self.static_cell(i, j):
                 continue
-            self.concentration[i, j][0] = 0.25 * self.neighbourhood_values(
+            self.concentration[i, j][0] = self.average_neighbourhood_values(
                 i, j, self.c_difference
             )
         self.calculate_differences()
@@ -231,7 +247,7 @@ class GaussSeidel(BaseIteration):
             i, j = int(self.black_tiles[v][0]), int(self.black_tiles[v][1])
             if self.static_cell(i, j):
                 continue
-            self.concentration[i, j][0] = 0.25 * self.neighbourhood_values(
+            self.concentration[i, j][0] = self.average_neighbourhood_values(
                 i, j, self.concentration
             )
 
@@ -239,7 +255,7 @@ class GaussSeidel(BaseIteration):
             i, j = int(self.white_tiles[v][0]), int(self.white_tiles[v][1])
             if self.static_cell(i, j):
                 continue
-            self.concentration[i, j][0] = 0.25 * self.neighbourhood_values(
+            self.concentration[i, j][0] = self.average_neighbourhood_values(
                 i, j, self.concentration
             )
         self.calculate_differences()
@@ -276,7 +292,7 @@ class SuccessiveOverRelaxation(GaussSeidel):
             if self.static_cell(i, j):
                 continue
             self.concentration[i, j][0] = (
-                self.omega * 0.25 * self.neighbourhood_values(i, j, self.concentration)
+                self.omega * self.average_neighbourhood_values(i, j, self.concentration)
                 + (1 - self.omega) * self.concentration[i, j][0]
             )
 
@@ -285,10 +301,11 @@ class SuccessiveOverRelaxation(GaussSeidel):
             if self.static_cell(i, j):
                 continue
             self.concentration[i, j][0] = (
-                self.omega * 0.25 * self.neighbourhood_values(i, j, self.concentration)
+                self.omega * self.average_neighbourhood_values(i, j, self.concentration)
                 + (1 - self.omega) * self.concentration[i, j][0]
             )
         self.calculate_differences()
+
 
 
 if __name__ == "__main__":
@@ -303,25 +320,25 @@ if __name__ == "__main__":
 
     N = 50  # Grid size
     jacobi = Jacobi(N=N)
-    jacobi.add_rectangle(20, 30, 20, 30)  # Add an obstacle
+    jacobi.add_insulator(20, 30, 20, 30)  # Add an obstacle
     jacobi.run()
 
-    gauss = GaussSeidel(N=N)
-    gauss.add_rectangle(10, 15, 10, 15)  # Add an obstacle
-    gauss.run()
+    # gauss = GaussSeidel(N=N)
+    # gauss.add_rectangle(10, 15, 10, 15)  # Add an obstacle
+    # gauss.run()
 
-    sor = SuccessiveOverRelaxation(omega=1.8, N=N)
-    sor.add_rectangle(25, 35, 25, 35)  # Another an obstacle
-    runs, _ = sor.run()
+    # sor = SuccessiveOverRelaxation(omega=1.8, N=N)
+    # sor.add_rectangle(25, 35, 25, 35)  # Another an obstacle
+    # runs, _ = sor.run()
 
     jacobi.gui()
-    gauss.gui()
-    sor.gui()
-    print(f"{runs = }")
+    # gauss.gui()
+    # sor.gui()
+    # print(f"{runs = }")
 
 
-    sor = SuccessiveOverRelaxation(omega=1.8, N=N)
-    sor.add_rectangle(25, 35, 25, 35)  # Another an obstacle
-    runs, _ = sor.run()
-    sor.gui()
-    print(f"{runs = }")
+    # sor = SuccessiveOverRelaxation(omega=1.8, N=N)
+    # sor.add_rectangle(25, 35, 25, 35)  # Another an obstacle
+    # runs, _ = sor.run()
+    # sor.gui()
+    # print(f"{runs = }")
