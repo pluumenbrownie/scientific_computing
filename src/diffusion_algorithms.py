@@ -41,7 +41,7 @@ class BaseIteration:
                 self.c_difference.to_numpy()[:, :, 0].max()
             )  # Store delta for plotting
 
-        return delta_values
+        return runs, delta_values
 
     def add_rectangle(self, x1, x2, y1, y2):
         """Marks a rectangular region."""
@@ -312,8 +312,16 @@ if __name__ == "__main__":
 
     sor = SuccessiveOverRelaxation(omega=1.8, N=N)
     sor.add_rectangle(25, 35, 25, 35)  # Another an obstacle
-    sor.run()
+    runs, _ = sor.run()
 
     jacobi.gui()
     gauss.gui()
     sor.gui()
+    print(f"{runs = }")
+
+
+    sor = SuccessiveOverRelaxation(omega=1.8, N=N)
+    sor.add_rectangle(25, 35, 25, 35)  # Another an obstacle
+    runs, _ = sor.run()
+    sor.gui()
+    print(f"{runs = }")
