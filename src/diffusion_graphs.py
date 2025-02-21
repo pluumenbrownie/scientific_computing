@@ -33,33 +33,55 @@ def analytical_solution(x: NDArray, t: float):
 
 
 def compare_to_analytical():
+    """
+    Compare Jacobi, Gauss-Seidel and SOR result to the
+    analytical ones
+    """
     y_values = np.linspace(0, 1, N)
-    fig, ax = plt.subplots()
-    analytical = analytical_solution(y_values, 1)
-    ax.plot(y_values, analytical, "--", label="Analytical t=1.0")
+    analytical = analytical_solution(y_values, 1) 
+    fig, axes = plt.subplots(1, 3, figsize=(18, 5))
 
     jacobi = Jacobi(N=N)
     jacobi.run()
-    jacobi_result = jacobi.concentration.to_numpy()[N // 2, :]
-    ax.plot(y_values, jacobi_result, ".", label=f"Jacobi Iteration")
+    jacobi_result = jacobi.concentration.to_numpy()[N // 2,:]
+    jacobi_result = jacobi_result[:, 0]
+    axes[0].plot(y_values, analytical, "--", label="Analytical t=1.0", color="black")
+    axes[0].plot(y_values, jacobi_result, "o", label="Jacobi", color="red")
+    axes[0].set_title("Jacobi vs. Analytical")
+    axes[0].set_xlabel("y")
+    axes[0].set_ylabel("c(y)")
+    axes[0].legend()
+    axes[0].grid()
 
+   
     gauss = GaussSeidel(N=N)
     gauss.run()
     gauss_result = gauss.concentration.to_numpy()[N // 2, :]
-    ax.plot(y_values, gauss_result, ".", label=f"Gauss-Seidel Iteration")
+    gauss_result = gauss_result[:, 0]
+    axes[1].plot(y_values, analytical, "--", label="Analytical t=1.0", color="black")
+    axes[1].plot(y_values, gauss_result, "s", label="Gauss-Seidel", color="blue")
+    axes[1].set_title("Gauss-Seidel vs. Analytical")
+    axes[1].set_xlabel("y")
+    axes[1].set_ylabel("c(y)")
+    axes[1].legend()
+    axes[1].grid()
 
-    sov = SuccessiveOverRelaxation(omega=1.8, N=N)
+    
+    sov = SuccessiveOverRelaxation(omega=1.5, N=N)  # Adjusted omega
     sov.run()
     sov_result = sov.concentration.to_numpy()[N // 2, :]
-    ax.plot(y_values, sov_result, ".", label=f"Succesive Over Relaxation")
+    sov_result = sov_result[:, 0]
+    axes[2].plot(y_values, analytical, "--", label="Analytical t=1.0", color="black")
+    axes[2].plot(y_values, sov_result, "d", label="SOR", color="green")
+    axes[2].set_title("SOR vs. Analytical")
+    axes[2].set_xlabel("y")
+    axes[2].set_ylabel("c(y)")
+    axes[2].legend()
+    axes[2].grid()
 
-    ax.set_xlabel("y")
-    ax.set_ylabel("c(y)")
-    ax.legend()
-    ax.set_title("Comparison of numerical and analytical solutions")
+    plt.tight_layout()
     plt.savefig("local/numerical_analytical.png", dpi=300)
     plt.show()
-    plt.close()
 
 
 def over_relaxation_variable():
@@ -75,7 +97,8 @@ def over_relaxation_variable():
             plot_y = []
             for omega in plot_x:
                 sov = SuccessiveOverRelaxation(omega=omega, N=grid_size)
-                plot_y.append(sov.run())
+                iteration,_ = sov.run()
+                plot_y.append(iteration)
                 bar()
 
             plt.plot(plot_x, plot_y, "o", label=f"N={grid_size}")
@@ -119,7 +142,7 @@ def compare_omega(omega):
     sov_list = []
     for o in omega:
         sov = SuccessiveOverRelaxation(omega=o, N=N, threshold=1e-5)
-        iteration = sov.run()
+        iteration, _ = sov.run()
         sov_list.append(iteration)
     return sov_list
 
@@ -142,8 +165,9 @@ def plot_omega(sov):
     plt.plot(omega, sov, "o-")
     plt.xlabel("omega value")
     plt.ylabel("iteration")
-    plt.title("SOV iteration with different omega values")
+    plt.title("SOR iteration with different omega values")
     plt.grid()
+    plt.savefig("local/omega_value.png", dpi=300)
     plt.show()
 
 
@@ -154,22 +178,29 @@ def plot_convergence_delta(jacobi_data, gauss_data, sov_data):
     plt.figure(figsize=(10, 6))
 
     # Plot Jacobi method
-    for j_data in jacobi_data:
-        plt.plot(range(len(j_data)), j_data, label="Jacobi", linestyle="dashed", color="red")
+    for id, j_data in enumerate(jacobi_data):
+        if id == 0:
+            label = "Jacobi"
+        else:
+            label = None
+        plt.plot(range(len(j_data)), j_data, label=label, linestyle="dashed", color="red")
+    
 
     # Plot Gauss-Seidel method
-    for g_data in gauss_data:
-        plt.plot(
-            range(len(g_data)),
-            g_data,
-            label="Gauss-Seidel",
-            linestyle="dotted",
-            color="green",
-        )
+    for id, g_data in enumerate(gauss_data):
+        if id == 0:
+            label = "Gauss-Seidel"
+        else:
+            label = None
+        plt.plot(range(len(g_data)),g_data,label=label,linestyle="dotted",color="green",)
 
     # Plot SOR method
-    for s_data in sov_data:
-        plt.plot(range(len(s_data)), s_data, label="SOR (ω=1.8)", color="blue")
+    for id, s_data in enumerate(sov_data):
+        if id == 0:
+            label = "SOR(ω=1.8)"
+        else:
+            label = None
+        plt.plot(range(len(s_data)), s_data, label=label, color="blue")
 
     plt.yscale("log")  # Logarithmic scale
     plt.xlabel("Iterations (k)")
@@ -207,7 +238,9 @@ def find_optimal_omega(
 
 
 if __name__ == "__main__":
-    sov = compare_omega(omega)
-    plot_omega(sov)
-    jacobi_data, gauss_data, sov_data = convergence_iteration()
-    plot_convergence_delta(jacobi_data, gauss_data, sov_data)
+    #sov = compare_omega(omega)
+    #plot_omega(sov)
+    #jacobi_data, gauss_data, sov_data = convergence_iteration()
+    #plot_convergence_delta(jacobi_data, gauss_data, sov_data)
+    #over_relaxation_variable()
+    compare_to_analytical()

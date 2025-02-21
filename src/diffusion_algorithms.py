@@ -3,6 +3,8 @@ import numpy as np
 import taichi as ti
 import math as mt
 from cell_type import CellTypes
+import matplotlib.cm as cm  
+import matplotlib.colors as mcolors
 
 
 ti.init(arch=ti.cpu)  # change this if you have gpu
@@ -54,7 +56,7 @@ class BaseIteration:
         for i in range(x1, x2):
             for j in range(y1, y2):
                 self.concentration[i, j][1] = CellTypes.blocker # type: ignore
-
+    
     def init(self):
         """
         Fill all of the fields in `self` with the required initial values.
@@ -172,16 +174,21 @@ class BaseIteration:
         # self.concentration.to_numpy().shape = (N, N, 2)
         image = self.concentration.to_numpy()[:, :, 0]
 
+        # add colors to image 
+        norm = mcolors.Normalize(vmin=image.min(), vmax=image.max())
+        colored_image = cm.viridis(norm(image))[:, :, :3]
+
         # scale image if necessary
         if not scale == 1:
-            scaled_image = np.zeros(shape=(scale * self.N, scale * self.N))
-            for i, j in np.ndindex(scaled_image.shape):
-                scaled_image[i, j] = image[i // scale, j // scale]
-            image = scaled_image
+            scaled_image = np.zeros(shape=(scale * self.N, scale * self.N,3))
+            for i, j in np.ndindex(scale * self.N, scale * self.N):
+                scaled_image[i, j] = colored_image[i // scale, j // scale]
+            colored_image = scaled_image
 
         while gui.running:
-            gui.set_image(image)
+            gui.set_image(colored_image)
             gui.show()
+            
 
 
 class Jacobi(BaseIteration):
@@ -304,15 +311,16 @@ class SuccessiveOverRelaxation(GaussSeidel):
                 self.omega * self.average_neighbourhood_values(i, j, self.concentration)
                 + (1 - self.omega) * self.concentration[i, j][0]
             )
+        self.reset_boundary()
         self.calculate_differences()
 
 
 
 if __name__ == "__main__":
-    # sov = SuccessiveOverRelaxation()
-    # sov_amount = sov.run()
-    # print(f"{sov_amount = }")
-    # sov.gui()
+    sov = SuccessiveOverRelaxation()
+    sov_amount = sov.run()
+    print(f"{sov_amount = }")
+    sov.gui()
     # jacobe = SuccessiveOverRelaxation()
     # jacobe.add_rectangle(30, 35, 30, 35)
     # jacobe.run()
@@ -320,7 +328,10 @@ if __name__ == "__main__":
 
     N = 50  # Grid size
     jacobi = Jacobi(N=N)
-    jacobi.add_insulator(20, 30, 20, 30)  # Add an obstacle
+    jacobi.add_insulator(5, 10, 5, 10)  # Add an obstacle
+    jacobi.add_insulator(40, 45, 5, 10)
+    jacobi.add_insulator(5, 10, 40, 45)
+    jacobi.add_insulator(40, 45, 40, 45)
     jacobi.run()
 
     # gauss = GaussSeidel(N=N)
@@ -332,8 +343,8 @@ if __name__ == "__main__":
     # runs, _ = sor.run()
 
     jacobi.gui()
-    # gauss.gui()
-    # sor.gui()
+    #gauss.gui()
+    #sor.gui()
     # print(f"{runs = }")
 
 

@@ -102,8 +102,8 @@ def run_gui():
 
 def plot_figure(result):
     x = np.linspace(0, 1, N)
-    time = [100, 500, 900]
-    fig, axes = plt.subplots(1, 3, figsize=(18, 5))  # 1 row, 3 columns
+    time = [100,200,300,400,500,600]
+    """fig, axes = plt.subplots(1, 3, figsize=(18, 5))  # 1 row, 3 columns
 
     for ax, t_idx in zip(axes, time):
         for (key, data) in result.items():
@@ -117,7 +117,19 @@ def plot_figure(result):
 
     plt.tight_layout()
     plt.savefig("local/1.1b.png", dpi=300)
-    plt.show()
+    plt.show()"""
+
+    for key, data in result.items(): 
+        for t in time: 
+            plt.plot(x, data[t], label=f'Time step {t}')
+        plt.title(f'Initial Condition: {key}')
+        plt.xlabel('x')
+        plt.ylabel('Amplitude')
+        plt.legend()
+        plt.grid()
+        plt.savefig(f"local/{key}_1.1b.png", dpi=300)
+        plt.show()
+
 
 
 if __name__ == "__main__":
