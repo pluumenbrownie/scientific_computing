@@ -5,6 +5,8 @@ import math as mt
 from cell_type import CellTypes
 import matplotlib.cm as cm  
 import matplotlib.colors as mcolors
+import matplotlib.pyplot as plt
+import os
 
 
 ti.init(arch=ti.cpu)  # change this if you have gpu
@@ -161,7 +163,7 @@ class BaseIteration:
             self.concentration[i, 0][0] = 0.0
             self.concentration[i, self.N - 1][0] = 1.0
 
-    def gui(self, scale: int = 10):
+    def gui(self, name, scale: int = 10):
         """
         Show the state of `self.concentration`.
 
@@ -188,6 +190,14 @@ class BaseIteration:
         while gui.running:
             gui.set_image(colored_image)
             gui.show()
+        
+        img_array = (colored_image * 255).astype(np.uint8)
+        img_array = np.rot90(img_array, k=1)
+        save_folder = "local/"
+        plt.imsave(os.path.join(save_folder, f"{name}.jpg"), img_array, dpi = 300)
+
+            
+
             
 
 
@@ -317,32 +327,38 @@ class SuccessiveOverRelaxation(GaussSeidel):
 
 
 if __name__ == "__main__":
-    sov = SuccessiveOverRelaxation()
-    sov_amount = sov.run()
-    print(f"{sov_amount = }")
-    sov.gui()
-    # jacobe = SuccessiveOverRelaxation()
-    # jacobe.add_rectangle(30, 35, 30, 35)
-    # jacobe.run()
-    # jacobe.gui()
+    # sov = SuccessiveOverRelaxation()
+    # sov_amount = sov.run()
+    # print(f"{sov_amount = }")
+    # sov.gui()
 
-    N = 50  # Grid size
+    jacobe = SuccessiveOverRelaxation()
+    jacobe.add_rectangle(30, 35, 30, 35)
+    jacobe.add_rectangle(15, 20, 15, 20)
+    jacobe.run()
+    jacobe.gui(name = "sinks")
+
+    """N = 50  # Grid size
     jacobi = Jacobi(N=N)
     jacobi.add_insulator(5, 10, 5, 10)  # Add an obstacle
     jacobi.add_insulator(40, 45, 5, 10)
     jacobi.add_insulator(5, 10, 40, 45)
     jacobi.add_insulator(40, 45, 40, 45)
-    jacobi.run()
+    jacobi.run()"""
 
     # gauss = GaussSeidel(N=N)
     # gauss.add_rectangle(10, 15, 10, 15)  # Add an obstacle
     # gauss.run()
 
-    # sor = SuccessiveOverRelaxation(omega=1.8, N=N)
-    # sor.add_rectangle(25, 35, 25, 35)  # Another an obstacle
-    # runs, _ = sor.run()
+    N = 50
+    sor = SuccessiveOverRelaxation(omega=1.8, N=N)
+    sor.add_insulator(30, 35, 30, 35)
+    sor.add_insulator(15, 20, 15, 20)
+    sor.run()
+    sor.gui(name = "insulators")
 
-    jacobi.gui()
+
+    #jacobi.gui()
     #gauss.gui()
     #sor.gui()
     # print(f"{runs = }")

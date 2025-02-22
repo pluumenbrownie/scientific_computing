@@ -111,7 +111,7 @@ def over_relaxation_variable():
     plt.close()
 
 
-def convergence_iteration():
+def convergence_iteration(sinks = False):
     jacobi_delta = []
     gauss_delta = []
     sov_delta = []
@@ -119,18 +119,27 @@ def convergence_iteration():
     for th in threshold:
         print("Start simulation for Jacobi")
         jacobi = Jacobi(N=N, threshold=th)
+        if sinks:
+            jacobi.add_rectangle(30, 35, 30, 35)
+            jacobi.add_rectangle(15, 20, 15, 20)
         _, jacobi_deltas = jacobi.run()  # Return delta per iteration
         jacobi_delta.append(jacobi_deltas)
 
     for th in threshold:
         print("Start simulation for Gauss-Seidel")
         gauss = GaussSeidel(N=N, threshold=th)
+        if sinks:
+            gauss.add_rectangle(30, 35, 30, 35)
+            gauss.add_rectangle(15, 20, 15, 20)
         _, gauss_deltas = gauss.run()
         gauss_delta.append(gauss_deltas)
 
     for th in threshold:
         print("Start simulation for SOV")
         sov = SuccessiveOverRelaxation(omega=1.8, N=N, threshold=th)
+        if sinks:
+            sov.add_rectangle(30, 35, 30, 35)
+            sov.add_rectangle(15, 20, 15, 20)
         _, sov_deltas = sov.run()
         sov_delta.append(sov_deltas)
 
@@ -240,7 +249,7 @@ def find_optimal_omega(
 if __name__ == "__main__":
     #sov = compare_omega(omega)
     #plot_omega(sov)
-    #jacobi_data, gauss_data, sov_data = convergence_iteration()
-    #plot_convergence_delta(jacobi_data, gauss_data, sov_data)
+    jacobi_data, gauss_data, sov_data = convergence_iteration(sinks = True)
+    plot_convergence_delta(jacobi_data, gauss_data, sov_data)
     #over_relaxation_variable()
-    compare_to_analytical()
+    #compare_to_analytical()
