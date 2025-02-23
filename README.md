@@ -1,5 +1,7 @@
 # Animated plot of diffusion equation until equilibrium
 
+<video src='figures/string_1.mp4' width=180/>
+
 https://github.com/pluumenbrownie/scientific_computing/blob/Assignment-1/figures/string_1.mp4
 
 https://github.com/pluumenbrownie/scientific_computing/blob/Assignment-1/figures/string_2.mp4
