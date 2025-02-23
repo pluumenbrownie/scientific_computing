@@ -141,5 +141,9 @@ if __name__ == "__main__":
     'initial condition 2': run_simulation(init_string_2),
     'initial condition 3': run_simulation(init_string_3),}
     plot_figure(results)
+    
+    save_video(1000, init_string_1, "string_1")
+    save_video(1000, init_string_2, "string_2")
+    save_video(1000, init_string_3, "string_3")
 
     
