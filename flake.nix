@@ -83,6 +83,7 @@
       );
     packages = with pkgs; [
       git-fame
+      ffmpeg
     ];
   in {
     # Package a virtual environment as our main application.
@@ -125,6 +126,22 @@
           };
         shellHook = ''
           unset PYTHONPATH
+
+
+          # Get the Python path
+          PYTHON_PATH_IGNORE=$(cd ~ && uv run which python)
+
+          # Extract the base path
+          BASE_PATH=$(dirname "$(dirname "$PYTHON_PATH_IGNORE")")
+
+          # Construct the TCL_LIBRARY path
+          TCL_LIBRARY="$BASE_PATH/lib/tcl8.6"
+          export TCL_LIBRARY
+          TK_LIBRARY="$BASE_PATH/lib/tk8.6"
+          export TK_LIBRARY
+
+          # Print the set variable (for verification)
+          echo "TCL_LIBRARY has been set to: $TCL_LIBRARY"
         '';
       };
 
