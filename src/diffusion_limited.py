@@ -42,7 +42,7 @@ def simulate_dla(grid: NDArray[np.int_], steps: np.int_ = 5000, eta: np.float64 
 def plot_grid(grid: NDArray[np.int_]) -> None:
     """Visualize the DLA cluster."""
     plt.figure(figsize=(8, 8))
-    plt.imshow(grid, cmap='gray_r', origin='lower')
+    plt.imshow(grid, cmap='gray', origin='lower')
     plt.title("DLA Growth Simulation")
     plt.show()
 
