@@ -18,11 +18,16 @@ K = 0.060
 @ti.data_oriented
 class GrayScott:
     def __init__(self, size: int) -> None:
-        self.diff_const = ti.types.vector([(DT * DU) / (DX**2), (DT * DV) / (DX**2)])
+        self.diff_const = ti.Matrix(
+            [[(DT * DU) / (DX**2), 0.0], [0.0, (DT * DV) / (DX**2)]]
+        )
         self.size = size
+        self.layers = 2
 
-        self.concentrations = ti.Vector.field(size, dtype=float, shape=(size, size))
-        self.previous = ti.Vector.field(size, dtype=float, shape=(size, size))
+        self.concentrations = ti.Vector.field(
+            self.layers, dtype=float, shape=(size, size)
+        )
+        self.previous = ti.Vector.field(self.layers, dtype=float, shape=(size, size))
 
     def init_concentration(
         self,
@@ -61,7 +66,6 @@ class GrayScott:
         for i, j in self.concentrations:
             self.concentrations[i, j][0] = u_concentration[i, j]
             self.concentrations[i, j][1] = v_concentration[i, j]
-        print(u_concentration[0, 0])
 
     @ti.kernel
     def _initialize_combined(
@@ -94,19 +98,20 @@ class GrayScott:
             + c[bc(i), bc(j - 1)]
             - 4 * c[i, j]
         )
-        # neighbours.outer_product(self.diff_const)
-        # neighbours[0] *= self.diff_const[0]
-        # neighbours[1] *= self.diff_const[1]
-        # return neighbours
+        return self.diff_const @ neighbours
 
     @ti.kernel
     def step_diffusion(self):
         self.copy_into_previous()
 
         for i, j in self.concentrations:
-            self.diffuse(i, j)
-            # self.concentrations[i, j] += self.diffuse(i, j)
+            # self.diffuse(i, j)
+            self.concentrations[i, j] += self.diffuse(i, j)
             # self.concentrations[i, j][1] = self.diffuse(i, j, 1)
+
+    @ti.kernel
+    def try_diffuse(self):
+        self.diffuse(0, 0)
 
     @ti.kernel
     def draw(self, scale: int):
@@ -132,7 +137,7 @@ class GrayScott:
 
 
 if __name__ == "__main__":
-    N = 5
+    N = 100
     gray_scott = GrayScott(N)
     u_concentration = np.full((N, N), 0.5, dtype=np.float32)
     v_concentration = np.zeros_like(u_concentration)
@@ -140,4 +145,4 @@ if __name__ == "__main__":
     gray_scott.init_concentration(
         u_concentration=u_concentration, v_concentration=v_concentration
     )
-    gray_scott.gui_loop(scale=40)
+    gray_scott.gui_loop(scale=4)
