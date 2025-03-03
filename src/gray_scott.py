@@ -5,7 +5,7 @@ from numpy.typing import NDArray
 from time import sleep
 
 
-ti.init()
+ti.init(arch=ti.gpu)
 
 
 DT = 1.0
@@ -135,17 +135,17 @@ class GrayScott:
     def draw(self, scale: int):
         for i, j in self.image:
             self.image[i, j][0] = ti.min(
-                self.concentrations[i // scale, j // scale][0] * 256, 255
+                self.concentrations[i // scale, j // scale][0], 1.0
             )
             self.image[i, j][1] = 0
             self.image[i, j][2] = ti.min(
-                self.concentrations[i // scale, j // scale][1] * 256, 255
+                self.concentrations[i // scale, j // scale][1], 1.0
             )
 
     def gui_loop(self, scale: int = 1, speed: int = 1):
         scaled_size = self.size * scale
-        gui = ti.GUI("Gray-Scott Reaction-Diffusion", res=scaled_size)
-        self.image = ti.Vector.field(3, ti.u8, shape=(scaled_size, scaled_size))
+        gui = ti.GUI("Gray-Scott Reaction-Diffusion", res=scaled_size, fast_gui=True)
+        self.image = ti.Vector.field(3, float, shape=(scaled_size, scaled_size))
 
         while gui.running:
             for _ in range(speed):
@@ -159,7 +159,7 @@ class GrayScott:
 
 
 if __name__ == "__main__":
-    N = 100
+    N = 900
     gray_scott = GrayScott(N)
     u_concentration = np.full((N, N), 0.5, dtype=np.float32)
     v_concentration = np.zeros_like(u_concentration)
@@ -168,7 +168,7 @@ if __name__ == "__main__":
     gray_scott.init_concentration(
         u_concentration=u_concentration, v_concentration=v_concentration
     )
-    gray_scott.gui_loop(scale=4, speed=10)
+    gray_scott.gui_loop(scale=1, speed=20)
     # gray_scott.step_diffusion()
     # gray_scott.step_diffusion()
     # gray_scott.step_diffusion()
