@@ -23,9 +23,8 @@ DEBUG = False
 @ti.data_oriented
 class GrayScott:
     def __init__(self, size: int) -> None:
-        self.diff_const = ti.Matrix(
-            [[(DT * DU) / (DX**2), 0.0], [0.0, (DT * DV) / (DX**2)]]
-        )
+        self.scaling_matrix = ti.Matrix([[(DT) / (DX**2), 0.0], [0.0, (DT) / (DX**2)]])
+        self.diff_matrix = ti.Matrix([[DU, 0.0], [0.0, DV]])
         self.size = size
         self.layers = 2
 
@@ -98,7 +97,7 @@ class GrayScott:
         bc, c = ti.static(self.bc, self.previous)
         cij = c[i, j]
 
-        neighbours = (
+        neighbours = self.diff_matrix @ (
             c[bc(i + 1), bc(j)]
             + c[bc(i - 1), bc(j)]
             + c[bc(i), bc(j + 1)]
@@ -117,7 +116,7 @@ class GrayScott:
                 neighbours,
             )
 
-        return self.diff_const @ neighbours
+        return self.scaling_matrix @ neighbours
 
     @ti.kernel
     def step_diffusion(self):
@@ -138,10 +137,10 @@ class GrayScott:
             self.image[i, j][0] = ti.min(
                 self.concentrations[i // scale, j // scale][0] * 256, 255
             )
-            self.image[i, j][1] = ti.min(
+            self.image[i, j][1] = 0
+            self.image[i, j][2] = ti.min(
                 self.concentrations[i // scale, j // scale][1] * 256, 255
             )
-            self.image[i, j][2] = 0
 
     def gui_loop(self, scale: int = 1, speed: int = 1):
         scaled_size = self.size * scale
