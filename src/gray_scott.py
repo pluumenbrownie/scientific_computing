@@ -12,19 +12,17 @@ DT = 1.0
 DX = 1
 DU = 0.16
 DV = 0.08
-# F = 0.028
-# K = 0.062
 F = 0.035
 K = 0.060
 
-DEBUG = False
+SPEED = 100
 
 
 @ti.data_oriented
 class GrayScott:
     def __init__(self, size: int) -> None:
         self.scaling_matrix = ti.Matrix([[(DT) / (DX**2), 0.0], [0.0, (DT) / (DX**2)]])
-        self.diff_matrix = ti.Matrix([[DU, 0.0], [0.0, DV]])
+        self.diffusion_constants = ti.Matrix([[DU, 0.0], [0.0, DV]])
         self.size = size
         self.layers = 2
 
@@ -97,24 +95,16 @@ class GrayScott:
         bc, c = ti.static(self.bc, self.previous)
         cij = c[i, j]
 
-        neighbours = self.diff_matrix @ (
+        neighbours = self.diffusion_constants @ (
             c[bc(i + 1), bc(j)]
             + c[bc(i - 1), bc(j)]
             + c[bc(i), bc(j + 1)]
             + c[bc(i), bc(j - 1)]
-            - 4 * c[i, j]
+            - 4 * cij
         )
 
         neighbours += ti.Vector([-(cij[0] * cij[1] ** 2), (cij[0] * cij[1] ** 2)])
         neighbours += ti.Vector([F * (1 - cij[0]), -(F + K) * cij[1]])
-
-        if ti.static(DEBUG):
-            print(
-                cij,
-                ti.Vector([-(cij[0] * cij[1] ** 2), (cij[0] * cij[1] ** 2)]),
-                ti.Vector([F * (1 - cij[0]), -(F + K) * cij[1]]),
-                neighbours,
-            )
 
         return self.scaling_matrix @ neighbours
 
@@ -124,8 +114,6 @@ class GrayScott:
 
         for i, j in self.concentrations:
             self.concentrations[i, j] += self.diffuse(i, j)
-        if ti.static(DEBUG):
-            print()
 
     @ti.kernel
     def try_diffuse(self):
@@ -134,12 +122,12 @@ class GrayScott:
     @ti.kernel
     def draw(self, scale: int):
         for i, j in self.image:
-            self.image[i, j][0] = ti.min(
-                self.concentrations[i // scale, j // scale][0], 1.0
-            )
-            self.image[i, j][1] = 0
-            self.image[i, j][2] = ti.min(
-                self.concentrations[i // scale, j // scale][1], 1.0
+            self.image[i, j][0] = self.concentrations[i // scale, j // scale][
+                0
+            ] - ti.max(self.concentrations[i // scale, j // scale][1] - 0.3, 0.0)
+            self.image[i, j][1] = self.concentrations[i // scale, j // scale][1] * 1.5
+            self.image[i, j][2] = ti.max(
+                self.concentrations[i // scale, j // scale][1] - 0.3, 0.0
             )
 
     def gui_loop(self, scale: int = 1, speed: int = 1):
@@ -153,22 +141,16 @@ class GrayScott:
             self.draw(scale)
             gui.set_image(self.image)
             gui.show()
-            # sleep(0.1)
-        print(self.concentrations.to_numpy()[2, 2])
-        print(self.concentrations.to_numpy()[50, 50])
 
 
 if __name__ == "__main__":
-    N = 900
+    N = 400
     gray_scott = GrayScott(N)
     u_concentration = np.full((N, N), 0.5, dtype=np.float32)
     v_concentration = np.zeros_like(u_concentration)
-    v_concentration[N // 2 - 5 : N // 2 + 5, N // 2 - 5 : N // 2 + 5] = 0.25
-    # v_concentration[2, 2] = 1.25
+    v_concentration[N // 4 - 5 : N // 4 + 5, N // 4 - 5 : N // 4 + 5] = 0.25
+    v_concentration += np.random.rand(*v_concentration.shape) * 0.1
     gray_scott.init_concentration(
         u_concentration=u_concentration, v_concentration=v_concentration
     )
-    gray_scott.gui_loop(scale=1, speed=20)
-    # gray_scott.step_diffusion()
-    # gray_scott.step_diffusion()
-    # gray_scott.step_diffusion()
+    gray_scott.gui_loop(scale=2, speed=SPEED)
