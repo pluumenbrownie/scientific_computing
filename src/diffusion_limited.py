@@ -25,8 +25,9 @@ def initialize_grid():
         grid[i, j] = 0  # Empty space
         concentration[i, j] = 0.1  # SMALL initial diffusion everywhere
 
-    grid[size // 2, size // 2] = 1  # locating a seed at the center
-    concentration[size // 2, size // 2] = 1.0  # high initial concentration at seed
+    grid[size // 2, 0] = 1  # placing the seed at the bottom of the grid
+    concentration[size // 2, 0] = 1.0  # high initial concentration at seed
+
 
 
 @ti.data_oriented
