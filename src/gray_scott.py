@@ -1,29 +1,31 @@
 import taichi as ti
-from diffusion_algorithms import SuccessiveOverRelaxation
 import numpy as np
 from numpy.typing import NDArray
-from time import sleep
 
 
 ti.init(arch=ti.gpu)
 
-
-DT = 1.0
-DX = 1
-DU = 0.16
-DV = 0.08
-F = 0.035
-K = 0.060
 
 SPEED = 100
 
 
 @ti.data_oriented
 class GrayScott:
-    def __init__(self, size: int) -> None:
+    def __init__(
+        self,
+        size: int,
+        DT: float = 1.0,
+        DX: float = 1.0,
+        DU: float = 0.16,
+        DV: float = 0.08,
+        F: float = 0.035,
+        K: float = 0.060,
+    ) -> None:
         self.scaling_matrix = ti.Matrix([[(DT) / (DX**2), 0.0], [0.0, (DT) / (DX**2)]])
         self.diffusion_constants = ti.Matrix([[DU, 0.0], [0.0, DV]])
         self.size = size
+        self.F = F
+        self.K = K
         self.layers = 2
 
         self.concentrations = ti.Vector.field(
@@ -104,7 +106,7 @@ class GrayScott:
         )
 
         neighbours += ti.Vector([-(cij[0] * cij[1] ** 2), (cij[0] * cij[1] ** 2)])
-        neighbours += ti.Vector([F * (1 - cij[0]), -(F + K) * cij[1]])
+        neighbours += ti.Vector([self.F * (1 - cij[0]), -(self.F + self.K) * cij[1]])
 
         return self.scaling_matrix @ neighbours
 
