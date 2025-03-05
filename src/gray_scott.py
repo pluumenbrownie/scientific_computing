@@ -6,7 +6,7 @@ from numpy.typing import NDArray
 ti.init(arch=ti.gpu)
 
 
-SPEED = 100
+SPEED = 1000
 
 
 @ti.data_oriented
@@ -143,6 +143,29 @@ class GrayScott:
             self.draw(scale)
             gui.set_image(self.image)
             gui.show()
+
+    def save_frames(
+        self, frames: int | list[int], name: str, scale: int = 1, local: bool = True
+    ):
+        """
+        Saves the given frames from this simulation to png's.
+        """
+        if isinstance(frames, int):
+            frames = [frames]
+
+        gui = ti.GUI("Saving private String", res=self.size, show_gui=False)
+
+        for i in range(max(frames) + 1):
+            self.step_diffusion()
+            if i in frames:
+                frames.remove(i)
+                self.draw(scale)
+                gui.set_image(self.image)
+                gui.show(
+                    f"./local/{name}_{i:06d}.png"
+                    if local
+                    else f"./figures/{name}_{i:06d}.png"
+                )
 
 
 if __name__ == "__main__":
