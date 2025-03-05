@@ -6,14 +6,17 @@ ti.init(arch=ti.cpu)  # change this if you have gpu
 
 # Parameters
 size = 100  # grid size
-steps = 5000  # number of growth steps
-eta = 1.0  # eta -> determines the shape of the object
-omega = 1.8  # relaxation constant
+steps = 1000  # number of growth steps
+eta = 1.8  # eta -> determines the shape of the object
+omega = 1.9  # relaxation constant
 
-grid = ti.field(dtype=ti.i32, shape=(size, size))  # 2D Grid
 concentration = ti.field(dtype=ti.f32, shape=(size, size))  # diffusion field
 growth_candidates = ti.Vector.field(2, dtype=ti.i32, shape=size * size)
 candidate_count = ti.field(dtype=ti.i32, shape=())
+probabilities = ti.field(dtype=ti.f32, shape=(size * size))
+chosen_index = ti.field(dtype=ti.i32, shape=())
+total_prob = ti.field(dtype=ti.i32, shape=())
+grid = ti.field(dtype=float, shape=(size, size))  # 2D grid
 
 
 @ti.kernel
@@ -21,13 +24,12 @@ def initialize_grid():
     """
     Initialize the grid with a seed at the center.
     """
-    for i, j in grid:
+    for i, j in ti.ndrange(size, size):
         grid[i, j] = 0  # Empty space
-        concentration[i, j] = 0.1  # SMALL initial diffusion everywhere
+        concentration[i, j] = 0.01  # SMALL initial diffusion everywhere
 
-    grid[size // 2, 0] = 1  # placing the seed at the bottom of the grid
-    concentration[size // 2, 0] = 1.0  # high initial concentration at seed
-
+    grid[0, size // 2] = 1  # placing the seed at the bottom of the grid
+    concentration[0, size // 2] = 1  # high initial concentration at seed
 
 
 @ti.data_oriented
@@ -52,13 +54,13 @@ class SuccessiveOverRelaxation:
 
     @ti.kernel
     def sor_iteration(self):
-        for i, j in ti.ndrange((1, size - 1), (1, size - 1)):
+        for i, j in ti.ndrange((0, size), (0, size)):
             if grid[i, j] == 0:  # only update non cluster points
                 new_value = (
                     concentration[i - 1, j]
                     + concentration[i + 1, j]
-                    + concentration[i, j - 1]
-                    + concentration[i, j + 1]
+                    + concentration[i, periodic_boundary(j - 1)]  # periodic boundary
+                    + concentration[i, periodic_boundary(j + 1)]  # periodic boundary
                 ) * 0.25
                 concentration[i, j] = (1 - self.omega) * concentration[
                     i, j
@@ -69,41 +71,69 @@ class SuccessiveOverRelaxation:
             self.sor_iteration()
 
 
+@ti.func
+def periodic_boundary(i: int):
+    """
+    Assign periodic boundary to the grid
+    """
+    return i % size
+
+
 @ti.kernel
 def get_growth_candidates():
     """
     Identify the locations of the candidates adjacent to the cluster.
     """
     candidate_count[None] = 0
-    for i, j in ti.ndrange((1, size - 1), (1, size - 1)):
+    for i, j in ti.ndrange((0, size), (0, size)):
         if grid[i, j] == 0 and (
             grid[i - 1, j] == 1
             or grid[i + 1, j] == 1
-            or grid[i, j - 1] == 1
-            or grid[i, j + 1] == 1
+            or grid[i, periodic_boundary(j - 1)] == 1  # periodic boundary
+            or grid[i, periodic_boundary(j + 1)] == 1  # periodic boundary
         ):
             idx = ti.atomic_add(candidate_count[None], 1)
             growth_candidates[idx] = ti.Vector([i, j])
 
 
 @ti.kernel
-def compute_growth_probabilities(probabilities: ti.types.ndarray()):
+def compute_growth_probabilities():
     """
     Calculate the growth probabilities based on diffusion concentration.
     """
-    total_prob = 0.0
+    total_prob[None] = 0.0
     for k in range(candidate_count[None]):
         i, j = growth_candidates[k]
-        probabilities[k] = concentration[i, j] ** eta  # use of diffusion concentration
-        total_prob += probabilities[k]
+        probabilities[k] = concentration[i, j] ** eta
+        ti.atomic_add(total_prob[None], probabilities[k])
 
     # Normalize probabilities
-    if total_prob > 0:
+    if total_prob[None] > 0:
         for k in range(candidate_count[None]):
-            probabilities[k] /= total_prob
+            probabilities[k] /= total_prob[None]
     else:
         for k in range(candidate_count[None]):
             probabilities[k] = 1.0 / candidate_count[None]  # uniform fallback
+
+
+@ti.kernel
+def choose_site():
+    """
+    Select a site to grow the DLA based on the growth probability
+    """
+    cum = 0.0
+    flag = 0
+    U = ti.random(ti.f32)
+
+    for k in range(candidate_count[None]):
+        if flag == 0:
+            cum += probabilities[k]
+            if U <= cum:
+                chosen_index[None] = k
+                flag = 1  # turn the flag to stop adding the probability
+
+    if flag == 0:
+        chosen_index[None] = candidate_count[None] - 1  # fall back
 
 
 def simulate_dla():
@@ -111,7 +141,7 @@ def simulate_dla():
     Runs the DLA growth with SOR optimization.
     """
     sor_solver = SuccessiveOverRelaxation(omega=omega)
-    sor_solver.solve(50)  # stabilize concentration field
+    sor_solver.solve(50)
 
     for step in range(steps):
         get_growth_candidates()
@@ -120,12 +150,9 @@ def simulate_dla():
         if num_candidates == 0:
             break  # stop if there are no candidates left
 
-        probabilities = np.zeros(num_candidates, dtype=np.float32)
-        compute_growth_probabilities(probabilities)
-
-        # choose random candidate
-        chosen_index = np.random.choice(num_candidates, p=probabilities)
-        i, j = growth_candidates.to_numpy()[chosen_index]
+        compute_growth_probabilities()
+        choose_site()
+        i, j = growth_candidates[chosen_index[None]]
         grid[i, j] = 1  # grow the cluster
 
         # update every 10 steps
@@ -144,7 +171,31 @@ def plot_grid():
     plt.show()
 
 
+def plot_concentration_and_dla():
+    """
+    Plots the concentration field and overlays the DLA cluster.
+    """
+    grid_np = grid.to_numpy()
+    concentration_np = concentration.to_numpy()
+
+    fig, ax = plt.subplots(figsize=(6, 6))
+
+    cmap = plt.cm.plasma
+    im = ax.imshow(concentration_np, cmap=cmap, origin="lower")
+
+    dla_mask = np.ma.masked_where(grid_np == 0, grid_np)
+    ax.imshow(dla_mask, cmap="gray", alpha=0.8, origin="lower")
+
+    cbar = plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+    cbar.set_label("Diffusion Concentration")
+
+    ax.set_title("DLA Growth with SOR Concentration Field")
+    ax.set_xlabel("X")
+    ax.set_ylabel("Y")
+    plt.show()
+
+
 # Run the simulation
 initialize_grid()
 simulate_dla()
-plot_grid()
+plot_concentration_and_dla()

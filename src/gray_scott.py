@@ -170,11 +170,24 @@ class GrayScott:
 
 if __name__ == "__main__":
     N = 400
-    gray_scott = GrayScott(N)
     u_concentration = np.full((N, N), 0.5, dtype=np.float32)
     v_concentration = np.zeros_like(u_concentration)
     v_concentration[N // 4 - 5 : N // 4 + 5, N // 4 - 5 : N // 4 + 5] = 0.25
-    v_concentration += np.random.rand(*v_concentration.shape) * 0.1
+    # v_concentration += np.random.rand(*v_concentration.shape) * 0.1
+
+    gray_scott = GrayScott(N, DT=1.0, DX=1.0, DU=0.16, DV=0.08, F=0.035, K=0.060)
+    gray_scott.init_concentration(
+        u_concentration=u_concentration, v_concentration=v_concentration
+    )
+    gray_scott.gui_loop(scale=2, speed=SPEED)
+
+    gray_scott = GrayScott(N, DT=1.0, DX=1.0, DU=0.16, DV=0.08, F=0.030, K=0.060)
+    gray_scott.init_concentration(
+        u_concentration=u_concentration, v_concentration=v_concentration
+    )
+    gray_scott.gui_loop(scale=2, speed=SPEED)
+
+    gray_scott = GrayScott(N, DT=1.0, DX=1.0, DU=0.16, DV=0.08, F=0.039, K=0.060)
     gray_scott.init_concentration(
         u_concentration=u_concentration, v_concentration=v_concentration
     )
