@@ -2,13 +2,15 @@ import taichi as ti
 import numpy as np
 import matplotlib.pyplot as plt
 
+# from diffusion_algorithms import SuccessiveOverRelaxation
+
 ti.init(arch=ti.cpu)  # change this if you have gpu
 
 # Parameters
 size = 100  # grid size
 steps = 1000  # number of growth steps
-eta = 1.8  # eta -> determines the shape of the object
-omega = 1.9  # relaxation constant
+eta = 1.5  # eta -> determines the shape of the object
+omega = 1.8  # relaxation constant
 
 concentration = ti.field(dtype=ti.f32, shape=(size, size))  # diffusion field
 growth_candidates = ti.Vector.field(2, dtype=ti.i32, shape=size * size)
@@ -26,10 +28,10 @@ def initialize_grid():
     """
     for i, j in ti.ndrange(size, size):
         grid[i, j] = 0  # Empty space
-        concentration[i, j] = 0.01  # SMALL initial diffusion everywhere
+        if i == size - 1:
+            concentration[i, j] = 1
 
     grid[0, size // 2] = 1  # placing the seed at the bottom of the grid
-    concentration[0, size // 2] = 1  # high initial concentration at seed
 
 
 @ti.data_oriented
@@ -47,22 +49,27 @@ class SuccessiveOverRelaxation:
     - `omega`: The relaxation constant. Default `omega = 1.8`
     """
 
-    def __init__(self, omega=1.8, threshold=1e-5, max_iterations=200):
+    def __init__(self, concentration, omega=1.8, threshold=1e-5, max_iterations=200):
         self.omega = omega
         self.threshold = threshold
         self.max_iterations = max_iterations
+        self.concentration = concentration
 
     @ti.kernel
     def sor_iteration(self):
-        for i, j in ti.ndrange((0, size), (0, size)):
+        for i, j in ti.ndrange((0, size - 1), (0, size)):
             if grid[i, j] == 0:  # only update non cluster points
                 new_value = (
-                    concentration[i - 1, j]
-                    + concentration[i + 1, j]
-                    + concentration[i, periodic_boundary(j - 1)]  # periodic boundary
-                    + concentration[i, periodic_boundary(j + 1)]  # periodic boundary
+                    self.concentration[i - 1, j]
+                    + self.concentration[i + 1, j]
+                    + self.concentration[
+                        i, periodic_boundary(j - 1)
+                    ]  # periodic boundary
+                    + self.concentration[
+                        i, periodic_boundary(j + 1)
+                    ]  # periodic boundary
                 ) * 0.25
-                concentration[i, j] = (1 - self.omega) * concentration[
+                self.concentration[i, j] = (1 - self.omega) * self.concentration[
                     i, j
                 ] + self.omega * new_value
 
@@ -140,7 +147,8 @@ def simulate_dla():
     """
     Runs the DLA growth with SOR optimization.
     """
-    sor_solver = SuccessiveOverRelaxation(omega=omega)
+    initialize_grid()
+    sor_solver = SuccessiveOverRelaxation(concentration, omega=omega)
     sor_solver.solve(50)
 
     for step in range(steps):
@@ -154,10 +162,11 @@ def simulate_dla():
         choose_site()
         i, j = growth_candidates[chosen_index[None]]
         grid[i, j] = 1  # grow the cluster
+        concentration[i, j] = 0.1
 
         # update every 10 steps
-        if step % 10 == 0:
-            sor_solver.solve(10)
+        if step % 5 == 0:
+            sor_solver.solve(5)
 
 
 def plot_grid():
@@ -196,6 +205,5 @@ def plot_concentration_and_dla():
 
 
 # Run the simulation
-initialize_grid()
 simulate_dla()
 plot_concentration_and_dla()
