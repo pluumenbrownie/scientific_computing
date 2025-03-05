@@ -154,6 +154,7 @@ class GrayScott:
             frames = [frames]
 
         gui = ti.GUI("Saving private String", res=self.size, show_gui=False)
+        self.image = ti.Vector.field(3, float, shape=(self.size, self.size))
 
         for i in range(max(frames) + 1):
             self.step_diffusion()
