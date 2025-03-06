@@ -1,6 +1,7 @@
 import taichi as ti
 import numpy as np
 import matplotlib.pyplot as plt
+import math as mt
 
 # from diffusion_algorithms import SuccessiveOverRelaxation
 
@@ -8,17 +9,34 @@ ti.init(arch=ti.cpu)  # change this if you have gpu
 
 # Parameters
 size = 100  # grid size
-steps = 1000  # number of growth steps
-eta = 1.5  # eta -> determines the shape of the object
-omega = 1.8  # relaxation constant
+steps = 100  # number of growth steps
+eta = 1.0  # eta -> determines the shape of the object
+omega = 1.92  # relaxation constant
 
 concentration = ti.field(dtype=ti.f32, shape=(size, size))  # diffusion field
 growth_candidates = ti.Vector.field(2, dtype=ti.i32, shape=size * size)
 candidate_count = ti.field(dtype=ti.i32, shape=())
 probabilities = ti.field(dtype=ti.f32, shape=(size * size))
 chosen_index = ti.field(dtype=ti.i32, shape=())
-total_prob = ti.field(dtype=ti.i32, shape=())
+total_prob = ti.field(dtype=float, shape=())
 grid = ti.field(dtype=float, shape=(size, size))  # 2D grid
+white_tiles = ti.Vector.field(n=2, dtype=int, shape=(mt.ceil(size**2 / 2)))
+black_tiles = ti.Vector.field(n=2, dtype=int, shape=(mt.floor(size**2 / 2)))
+
+
+@ti.kernel
+def init_checkerboard():
+    """
+    Fills the checkerboard fields `self.white_tiles` and `self.black_tiles`.
+    """
+    for i, j in concentration:
+        if i % 2 == j % 2:
+            white_tiles[j // 2 + ti.ceil(i * size / 2, dtype=int)] = ti.Vector([i, j])
+        else:
+            black_tiles[j // 2 + ti.floor(i * size / 2, dtype=int)] = ti.Vector([i, j])
+
+
+init_checkerboard()
 
 
 @ti.kernel
@@ -57,21 +75,32 @@ class SuccessiveOverRelaxation:
 
     @ti.kernel
     def sor_iteration(self):
-        for i, j in ti.ndrange((0, size - 1), (0, size)):
+        for tile in white_tiles:
+            i, j = white_tiles[tile][0], white_tiles[tile][1]
+            # do not update the sources and drains at the boundaries
+            if i == size - 1 or i == 0:
+                continue
             if grid[i, j] == 0:  # only update non cluster points
-                new_value = (
-                    self.concentration[i - 1, j]
-                    + self.concentration[i + 1, j]
-                    + self.concentration[
-                        i, periodic_boundary(j - 1)
-                    ]  # periodic boundary
-                    + self.concentration[
-                        i, periodic_boundary(j + 1)
-                    ]  # periodic boundary
-                ) * 0.25
-                self.concentration[i, j] = (1 - self.omega) * self.concentration[
-                    i, j
-                ] + self.omega * new_value
+                self.update_cell(i, j)
+        for tile in black_tiles:
+            i, j = black_tiles[tile][0], black_tiles[tile][1]
+            # do not update the sources and drains at the boundaries
+            if i == size - 1 or i == 0:
+                continue
+            if grid[i, j] == 0:  # only update non cluster points
+                self.update_cell(i, j)
+
+    @ti.func
+    def update_cell(self, i, j):
+        new_value = (
+            self.concentration[i - 1, j]
+            + self.concentration[i + 1, j]
+            + self.concentration[i, periodic_boundary(j - 1)]  # periodic boundary
+            + self.concentration[i, periodic_boundary(j + 1)]  # periodic boundary
+        ) * 0.25
+        self.concentration[i, j] = (1 - self.omega) * self.concentration[
+            i, j
+        ] + self.omega * new_value
 
     def solve(self, iterations=10):
         for _ in range(iterations):
@@ -149,7 +178,7 @@ def simulate_dla():
     """
     initialize_grid()
     sor_solver = SuccessiveOverRelaxation(concentration, omega=omega)
-    sor_solver.solve(50)
+    sor_solver.solve(1200)
 
     for step in range(steps):
         get_growth_candidates()
@@ -166,7 +195,7 @@ def simulate_dla():
 
         # update every 10 steps
         if step % 5 == 0:
-            sor_solver.solve(5)
+            sor_solver.solve(1000)
 
 
 def plot_grid():
@@ -198,7 +227,7 @@ def plot_concentration_and_dla():
     cbar = plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
     cbar.set_label("Diffusion Concentration")
 
-    ax.set_title("DLA Growth with SOR Concentration Field")
+    ax.set_title(f"DLA Growth with SOR Concentration Field with $\\eta=${eta}" "" "")
     ax.set_xlabel("X")
     ax.set_ylabel("Y")
     plt.show()
