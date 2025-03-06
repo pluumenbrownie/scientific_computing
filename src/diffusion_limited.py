@@ -82,23 +82,27 @@ class SuccessiveOverRelaxation:
         self.change_in_concentration = change_in_concentration
 
     @ti.kernel
-    def sor_iteration(self):
-        self.copy_into_change()
+    def sor_iteration(self) -> float:
+        # return largest change to determine whether theshold is reached
+        largest_change = 0.0
         for tile in white_tiles:
             i, j = white_tiles[tile][0], white_tiles[tile][1]
             # do not update the sources and drains at the boundaries
             if i == size - 1 or i == 0:
                 continue
             if grid[i, j] == 0:  # only update non cluster points
-                self.update_cell(i, j)
+                change = self.update_cell(i, j)
+                largest_change = max(change, largest_change)
         for tile in black_tiles:
             i, j = black_tiles[tile][0], black_tiles[tile][1]
             # do not update the sources and drains at the boundaries
             if i == size - 1 or i == 0:
                 continue
             if grid[i, j] == 0:  # only update non cluster points
-                self.update_cell(i, j)
-        self.calculate_change()
+                change = self.update_cell(i, j)
+                largest_change = max(change, largest_change)
+
+        return largest_change
 
     @ti.func
     def copy_into_change(self):
@@ -113,22 +117,23 @@ class SuccessiveOverRelaxation:
             )
 
     @ti.func
-    def update_cell(self, i, j):
+    def update_cell(self, i, j) -> float:
+        old_value = self.concentration[i, j]
         new_value = (
             self.concentration[i - 1, j]
             + self.concentration[i + 1, j]
             + self.concentration[i, periodic_boundary(j - 1)]  # periodic boundary
             + self.concentration[i, periodic_boundary(j + 1)]  # periodic boundary
         ) * 0.25
-        self.concentration[i, j] = (1 - self.omega) * self.concentration[
-            i, j
-        ] + self.omega * new_value
+        self.concentration[i, j] = (
+            self.omega * new_value + (1 - self.omega) * self.concentration[i, j]
+        )
+        return abs(old_value - self.concentration[i, j])
 
     def solve(self, iterations=10):
-        self.sor_iteration()
-        # there must be a faster way to do this
-        while self.change_in_concentration.to_numpy().max() > self.threshold:
-            self.sor_iteration()
+        largest_change = self.sor_iteration()
+        while largest_change > self.threshold:
+            largest_change = self.sor_iteration()
 
 
 @ti.func
