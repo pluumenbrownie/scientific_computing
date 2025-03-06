@@ -11,14 +11,14 @@ ti.init(arch=ti.cpu)  # change this if you have gpu
 size = 100  # grid size
 steps = 500  # number of growth steps
 eta = 1.2  # eta -> determines the shape of the object
-omega = 1.8  # reaxation constant
+omega = 1.92  # reaxation constant
 
 concentration = ti.field(dtype=ti.f32, shape=(size, size))  # diffusion field
+change_in_concentration = ti.field(dtype=ti.f32, shape=(size, size))  # diffusion field
 growth_candidates = ti.Vector.field(2, dtype=ti.i32, shape=size * size)
 candidate_count = ti.field(dtype=ti.i32, shape=())
 probabilities = ti.field(dtype=ti.f32, shape=(size * size))
 chosen_index = ti.field(dtype=ti.i32, shape=())
-total_prob = 0.0
 grid = ti.field(dtype=float, shape=(size, size))  # 2D grid
 white_tiles = ti.Vector.field(n=2, dtype=int, shape=(mt.ceil(size**2 / 2)))
 black_tiles = ti.Vector.field(n=2, dtype=int, shape=(mt.floor(size**2 / 2)))
@@ -67,14 +67,23 @@ class SuccessiveOverRelaxation:
     - `omega`: The relaxation constant. Default `omega = 1.8`
     """
 
-    def __init__(self, concentration, omega=1.8, threshold=1e-5, max_iterations=200):
+    def __init__(
+        self,
+        concentration,
+        change_in_concentration,
+        omega=1.8,
+        threshold=1e-5,
+        max_iterations=200,
+    ):
         self.omega = omega
         self.threshold = threshold
         self.max_iterations = max_iterations
         self.concentration = concentration
+        self.change_in_concentration = change_in_concentration
 
     @ti.kernel
     def sor_iteration(self):
+        self.copy_into_change()
         for tile in white_tiles:
             i, j = white_tiles[tile][0], white_tiles[tile][1]
             # do not update the sources and drains at the boundaries
@@ -89,6 +98,19 @@ class SuccessiveOverRelaxation:
                 continue
             if grid[i, j] == 0:  # only update non cluster points
                 self.update_cell(i, j)
+        self.calculate_change()
+
+    @ti.func
+    def copy_into_change(self):
+        for i, j in self.change_in_concentration:
+            self.change_in_concentration[i, j] = self.concentration[i, j]
+
+    @ti.func
+    def calculate_change(self):
+        for i, j in self.change_in_concentration:
+            self.change_in_concentration[i, j] = abs(
+                self.concentration[i, j] - self.change_in_concentration[i, j]
+            )
 
     @ti.func
     def update_cell(self, i, j):
@@ -103,7 +125,9 @@ class SuccessiveOverRelaxation:
         ] + self.omega * new_value
 
     def solve(self, iterations=10):
-        for _ in range(iterations):
+        self.sor_iteration()
+        # there must be a faster way to do this
+        while self.change_in_concentration.to_numpy().max() > self.threshold:
             self.sor_iteration()
 
 
@@ -183,7 +207,9 @@ def simulate_dla():
     Runs the DLA growth with SOR optimization.
     """
     initialize_grid()
-    sor_solver = SuccessiveOverRelaxation(concentration, omega=omega)
+    sor_solver = SuccessiveOverRelaxation(
+        concentration, change_in_concentration, omega=omega
+    )
     sor_solver.solve(100)
     for step in range(steps):
         get_growth_candidates()
@@ -234,6 +260,7 @@ def plot_concentration_and_dla():
     ax.set_title(f"DLA Growth with SOR Concentration Field with $\\eta=${eta}" "" "")
     ax.set_xlabel("X")
     ax.set_ylabel("Y")
+    plt.savefig("local/dla.png")
     plt.show()
 
 
