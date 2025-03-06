@@ -14,7 +14,6 @@ eta = 1.2  # eta -> determines the shape of the object
 omega = 1.92  # reaxation constant
 
 concentration = ti.field(dtype=ti.f32, shape=(size, size))  # diffusion field
-change_in_concentration = ti.field(dtype=ti.f32, shape=(size, size))  # diffusion field
 growth_candidates = ti.Vector.field(2, dtype=ti.i32, shape=size * size)
 candidate_count = ti.field(dtype=ti.i32, shape=())
 probabilities = ti.field(dtype=ti.f32, shape=(size * size))
@@ -70,7 +69,6 @@ class SuccessiveOverRelaxation:
     def __init__(
         self,
         concentration,
-        change_in_concentration,
         omega=1.8,
         threshold=1e-5,
         max_iterations=200,
@@ -79,7 +77,6 @@ class SuccessiveOverRelaxation:
         self.threshold = threshold
         self.max_iterations = max_iterations
         self.concentration = concentration
-        self.change_in_concentration = change_in_concentration
 
     @ti.kernel
     def sor_iteration(self) -> float:
@@ -103,18 +100,6 @@ class SuccessiveOverRelaxation:
                 largest_change = max(change, largest_change)
 
         return largest_change
-
-    @ti.func
-    def copy_into_change(self):
-        for i, j in self.change_in_concentration:
-            self.change_in_concentration[i, j] = self.concentration[i, j]
-
-    @ti.func
-    def calculate_change(self):
-        for i, j in self.change_in_concentration:
-            self.change_in_concentration[i, j] = abs(
-                self.concentration[i, j] - self.change_in_concentration[i, j]
-            )
 
     @ti.func
     def update_cell(self, i, j) -> float:
@@ -212,9 +197,7 @@ def simulate_dla():
     Runs the DLA growth with SOR optimization.
     """
     initialize_grid()
-    sor_solver = SuccessiveOverRelaxation(
-        concentration, change_in_concentration, omega=omega
-    )
+    sor_solver = SuccessiveOverRelaxation(concentration, omega=omega)
     sor_solver.solve(100)
     for step in range(steps):
         get_growth_candidates()
