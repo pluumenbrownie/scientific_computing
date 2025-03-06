@@ -245,10 +245,9 @@ def plot_concentration_and_dla():
     cbar = plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
     cbar.set_label("Diffusion Concentration")
 
-    ax.set_title(f"DLA Growth with SOR Concentration Field with $\\eta=${eta}" "" "")
+    ax.set_title(f"DLA Growth with SOR Concentration Field with $\\eta=${eta}")
     ax.set_xlabel("X")
     ax.set_ylabel("Y")
-    plt.savefig("local/dla.png")
     plt.show()
 
 
