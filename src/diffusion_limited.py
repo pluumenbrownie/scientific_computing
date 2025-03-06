@@ -8,8 +8,8 @@ ti.init(arch=ti.cpu)  # change this if you have gpu
 
 # Parameters
 size = 100  # grid size
-steps = 1000  # number of growth steps
-eta = 1.5  # eta -> determines the shape of the object
+steps = 500  # number of growth steps
+eta = 0.8  # eta -> determines the shape of the object
 omega = 1.8  # relaxation constant
 
 concentration = ti.field(dtype=ti.f32, shape=(size, size))  # diffusion field
@@ -17,7 +17,7 @@ growth_candidates = ti.Vector.field(2, dtype=ti.i32, shape=size * size)
 candidate_count = ti.field(dtype=ti.i32, shape=())
 probabilities = ti.field(dtype=ti.f32, shape=(size * size))
 chosen_index = ti.field(dtype=ti.i32, shape=())
-total_prob = ti.field(dtype=ti.i32, shape=())
+total_prob = 0.0
 grid = ti.field(dtype=float, shape=(size, size))  # 2D grid
 
 
@@ -30,6 +30,8 @@ def initialize_grid():
         grid[i, j] = 0  # Empty space
         if i == size - 1:
             concentration[i, j] = 1
+        elif i == 0:
+            concentration[i, j] = 0.2
 
     grid[0, size // 2] = 1  # placing the seed at the bottom of the grid
 
@@ -72,6 +74,8 @@ class SuccessiveOverRelaxation:
                 self.concentration[i, j] = (1 - self.omega) * self.concentration[
                     i, j
                 ] + self.omega * new_value
+            else:
+                self.concentration[i, j] = 0.0
 
     def solve(self, iterations=10):
         for _ in range(iterations):
@@ -108,16 +112,20 @@ def compute_growth_probabilities():
     """
     Calculate the growth probabilities based on diffusion concentration.
     """
-    total_prob[None] = 0.0
+    for i in probabilities:
+        probabilities[i] = 0.0
+    total_prob = 0.0
     for k in range(candidate_count[None]):
         i, j = growth_candidates[k]
         probabilities[k] = concentration[i, j] ** eta
-        ti.atomic_add(total_prob[None], probabilities[k])
+        if ti.math.isnan(probabilities[k]):  # Check for NaN
+            probabilities[k] = 1e-10
+        total_prob += probabilities[k]
 
     # Normalize probabilities
-    if total_prob[None] > 0:
+    if total_prob > 0:
         for k in range(candidate_count[None]):
-            probabilities[k] /= total_prob[None]
+            probabilities[k] /= total_prob
     else:
         for k in range(candidate_count[None]):
             probabilities[k] = 1.0 / candidate_count[None]  # uniform fallback
@@ -132,12 +140,14 @@ def choose_site():
     flag = 0
     U = ti.random(ti.f32)
 
+    ti.loop_config(serialize=True)
     for k in range(candidate_count[None]):
         if flag == 0:
             cum += probabilities[k]
             if U <= cum:
                 chosen_index[None] = k
                 flag = 1  # turn the flag to stop adding the probability
+                break
 
     if flag == 0:
         chosen_index[None] = candidate_count[None] - 1  # fall back
@@ -149,7 +159,8 @@ def simulate_dla():
     """
     initialize_grid()
     sor_solver = SuccessiveOverRelaxation(concentration, omega=omega)
-    sor_solver.solve(50)
+    sor_solver.solve(100)
+    concentration[0, size // 2] = 0
 
     for step in range(steps):
         get_growth_candidates()
@@ -162,11 +173,10 @@ def simulate_dla():
         choose_site()
         i, j = growth_candidates[chosen_index[None]]
         grid[i, j] = 1  # grow the cluster
-        concentration[i, j] = 0.1
+        concentration[i, j] = 0.0
 
         # update every 10 steps
-        if step % 5 == 0:
-            sor_solver.solve(5)
+        sor_solver.solve(100)
 
 
 def plot_grid():
@@ -198,7 +208,7 @@ def plot_concentration_and_dla():
     cbar = plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
     cbar.set_label("Diffusion Concentration")
 
-    ax.set_title("DLA Growth with SOR Concentration Field")
+    ax.set_title(f"DLA Growth with SOR Concentration Field, eta = {eta}")
     ax.set_xlabel("X")
     ax.set_ylabel("Y")
     plt.show()
