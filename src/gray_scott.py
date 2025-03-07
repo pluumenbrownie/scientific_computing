@@ -27,6 +27,7 @@ class GrayScott:
         self.F = F
         self.K = K
         self.layers = 2
+        self.current_step = 0
 
         self.concentrations = ti.Vector.field(
             self.layers, dtype=float, shape=(size, size)
@@ -167,6 +168,11 @@ class GrayScott:
                     if local
                     else f"./figures/{name}_{i:06d}.png"
                 )
+
+    def run_until_step(self, step: int):
+        for _ in range(self.current_step, step):
+            self.step_diffusion()
+            self.current_step += 1
 
 
 if __name__ == "__main__":
