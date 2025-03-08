@@ -74,14 +74,22 @@ def pyplot_combined():
     for row, (F, K, noise) in enumerate(parameters):
         for col, step in enumerate(saved_steps):
             images.append(axes[row, col].imshow(storage[row, col], norm=norm))
-            if col == 1 and noise:
-                axes[row, col].set_xlabel(f"$f={F}, k={K}$")
+            if col == 1:
+                if noise:
+                    axes[row, col].set_xlabel(f"step 5000")
+                else:
+                    axes[row, col].xaxis.set_label_position("top")
+                    axes[row, col].set_xlabel(f"$f={F}, k={K}$")
             if col == 0:
                 axes[row, col].set_ylabel(f"{'' if noise else 'no '}noise")
+                if noise:
+                    axes[row, col].set_xlabel(f"step 2500")
+            if col == 2 and noise:
+                axes[row, col].set_xlabel(f"step 7500")
 
     # fig.suptitle("Gray-Scott reactions for varying $f$ and $k$")
-    fig.colorbar(images[0], ax=axes, orientation="horizontal", pad=0.003)
-    plt.savefig("local/combined.png")
+    fig.colorbar(images[0], ax=axes, orientation="horizontal", pad=0.005)
+    plt.savefig("local/gray_scott_collage.pdf")
 
 
 if __name__ == "__main__":
