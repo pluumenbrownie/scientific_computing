@@ -79,7 +79,7 @@ def pyplot_combined():
                     axes[row, col].set_xlabel(f"step 5000")
                 else:
                     axes[row, col].xaxis.set_label_position("top")
-                    axes[row, col].set_xlabel(f"$f={F}, k={K}$")
+                    axes[row, col].set_xlabel(f"$f={F:.3f}, k={K}$")
             if col == 0:
                 axes[row, col].set_ylabel(f"{'' if noise else 'no '}noise")
                 if noise:
