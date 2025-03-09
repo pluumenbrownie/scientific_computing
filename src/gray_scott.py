@@ -264,7 +264,7 @@ class GrayScott:
         Will fail when `step > self.current_step`
         """
         assert (
-            step <= self.current_step
+            step > self.current_step
         ), f"Given step cannot be more than self.current_step."
         for _ in range(self.current_step, step):
             self.step_diffusion()
