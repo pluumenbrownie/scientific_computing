@@ -14,6 +14,9 @@ steps = 500  # number of growth steps
 eta = 1.2  # eta -> determines the shape of the object
 omega = 1.92  # reaxation constant
 
+# quick hack to prevent undefined behavior
+buffer = ti.field(dtype=ti.f32, shape=(size, size))
+
 concentration = ti.field(dtype=ti.f32, shape=(size, size))  # diffusion field
 growth_candidates = ti.Vector.field(2, dtype=ti.i32, shape=size * size)
 candidate_count = ti.field(dtype=ti.i32, shape=())
@@ -39,7 +42,7 @@ def init_checkerboard():
 init_checkerboard()
 
 
-@ti.kernel
+# @ti.kernel
 def initialize_grid():
     """
     Initialize the grid with a seed at the center.
@@ -257,8 +260,9 @@ def plot_concentration_and_dla(eta: float):
     plt.show()
 
 
-# Run the simulation
-eta_l = [0.6, 1.0, 1.2]
-for eta in eta_l:
-    simulate_dla(eta)
-    plot_concentration_and_dla(eta)
+if __name__ == "__main__":
+    # Run the simulation
+    eta_l = [0.6, 1.0, 1.2]
+    for eta in eta_l:
+        simulate_dla(eta)
+        plot_concentration_and_dla(eta)

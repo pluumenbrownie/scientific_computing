@@ -129,12 +129,13 @@ class monte_carlo:
         plt.imsave(os.path.join(save_folder, f"{name}.jpg"), img, cmap="gray", dpi=300)
 
 
-# test with different sticking probability
-mdla = monte_carlo(N=100, particle=1000, stick_p=0.1)
-mdla.gui_visual(name="Monte Carlo_p_0.1_N_100")
+if __name__ == "__main__":
+    # test with different sticking probability
+    mdla = monte_carlo(N=100, particle=1000, stick_p=0.1)
+    mdla.gui_visual(name="Monte Carlo_p_0.1_N_100")
 
-mdla2 = monte_carlo(N=100, particle=1000, stick_p=0.5)
-mdla2.gui_visual(name="Monte Carlo_p_0.5_N_100")
+    mdla2 = monte_carlo(N=100, particle=1000, stick_p=0.5)
+    mdla2.gui_visual(name="Monte Carlo_p_0.5_N_100")
 
-mdla3 = monte_carlo(N=100, particle=1000, stick_p=0.9)
-mdla3.gui_visual(name="Monte Carlo_p_0.9_N_100")
+    mdla3 = monte_carlo(N=100, particle=1000, stick_p=0.9)
+    mdla3.gui_visual(name="Monte Carlo_p_0.9_N_100")
