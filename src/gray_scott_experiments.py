@@ -38,7 +38,11 @@ def single_frames():
         gray_scott.save_frames(saved_steps, name=f"f{F}K{K}")
 
 
-def pyplot_combined():
+def pyplot_combined(save_location: str = "local/gray_scott_collage.pdf"):
+    """
+    Plots the concentrations for the given parameters on the given time steps in a
+    shared matplotlib figure.
+    """
     N = 150
     # the parameters for the models we want to save
     parameters = [
@@ -61,35 +65,38 @@ def pyplot_combined():
         ncols=len(saved_steps),
         subplot_kw={"xticks": [], "yticks": []},
     )
+    # save the concentrations before plotting to create a shared color bar
     storage = np.zeros((len(parameters), len(saved_steps), N, N), dtype=np.float32)
 
+    # save the concentrations
     for row, (F, K, noise) in enumerate(parameters):
         gray_scott = create_model(N, F, K, noise)
         for col, step in enumerate(saved_steps):
             gray_scott.run_until_step(step)
             storage[row, col] = gray_scott.concentrations.to_numpy()[:, :, 1]
 
+    # plot the concentrations
     norm = Normalize(vmin=storage.min(), vmax=storage.max())
     images = []
     for row, (F, K, noise) in enumerate(parameters):
         for col, step in enumerate(saved_steps):
             images.append(axes[row, col].imshow(storage[row, col], norm=norm))
+            if col == 0:
+                axes[row, col].set_ylabel(f"{'' if noise else 'no '}noise")
+                if noise:
+                    axes[row, col].set_xlabel(f"step 2500")
             if col == 1:
                 if noise:
                     axes[row, col].set_xlabel(f"step 5000")
                 else:
                     axes[row, col].xaxis.set_label_position("top")
                     axes[row, col].set_xlabel(f"$f={F:.3f}, k={K}$")
-            if col == 0:
-                axes[row, col].set_ylabel(f"{'' if noise else 'no '}noise")
-                if noise:
-                    axes[row, col].set_xlabel(f"step 2500")
             if col == 2 and noise:
                 axes[row, col].set_xlabel(f"step 7500")
 
-    # fig.suptitle("Gray-Scott reactions for varying $f$ and $k$")
+    # add the color bar
     fig.colorbar(images[0], ax=axes, orientation="horizontal", pad=0.005)
-    plt.savefig("local/gray_scott_collage.pdf")
+    plt.savefig(save_location)
 
 
 if __name__ == "__main__":
