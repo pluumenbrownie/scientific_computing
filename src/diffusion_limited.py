@@ -2,6 +2,7 @@ import taichi as ti
 import numpy as np
 import matplotlib.pyplot as plt
 import math as mt
+import os
 
 # from diffusion_algorithms import SuccessiveOverRelaxation
 
@@ -147,7 +148,7 @@ def get_growth_candidates():
 
 
 @ti.kernel
-def compute_growth_probabilities():
+def compute_growth_probabilities(eta: float):
     """
     Calculate the growth probabilities based on diffusion concentration.
     """
@@ -192,7 +193,7 @@ def choose_site():
         chosen_index[None] = candidate_count[None] - 1  # fall back
 
 
-def simulate_dla():
+def simulate_dla(eta: float):
     """
     Runs the DLA growth with SOR optimization.
     """
@@ -206,7 +207,7 @@ def simulate_dla():
         if num_candidates == 0:
             break  # stop if there are no candidates left
 
-        compute_growth_probabilities()
+        compute_growth_probabilities(eta)
         choose_site()
         i, j = growth_candidates[chosen_index[None]]
         grid[i, j] = 1  # grow the cluster
@@ -227,7 +228,7 @@ def plot_grid():
     plt.show()
 
 
-def plot_concentration_and_dla():
+def plot_concentration_and_dla(eta: float):
     """
     Plots the concentration field and overlays the DLA cluster.
     """
@@ -248,9 +249,16 @@ def plot_concentration_and_dla():
     ax.set_title(f"DLA Growth with SOR Concentration Field with $\\eta=${eta}")
     ax.set_xlabel("X")
     ax.set_ylabel("Y")
+    save_folder = save_folder = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "..", "figures"
+    )
+    os.makedirs(save_folder, exist_ok=True)
+    plt.savefig(os.path.join(save_folder, f"DLA_eta={eta}.png"), dpi=300)
     plt.show()
 
 
 # Run the simulation
-simulate_dla()
-plot_concentration_and_dla()
+eta_l = [0.6, 1.0, 1.2]
+for eta in eta_l:
+    simulate_dla(eta)
+    plot_concentration_and_dla(eta)

@@ -122,7 +122,10 @@ class monte_carlo:
         """
         img = image.astype(np.uint8)
         img = np.rot90(img, k=1)
-        save_folder = "local/"
+        save_folder = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "..", "figures"
+        )
+        os.makedirs(save_folder, exist_ok=True)
         plt.imsave(os.path.join(save_folder, f"{name}.jpg"), img, cmap="gray", dpi=300)
 
 
