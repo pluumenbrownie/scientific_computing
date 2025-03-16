@@ -42,22 +42,24 @@ class Membrane:
         membrane.fill_circle()
         return membrane
 
-    # @ti.kernel
-    # def fill_circle(self):
-
-    #     for i, j in self.ignore:
-    #         if (i**2 + j**2 > )
+    @ti.kernel
+    def fill_circle(self):
+        MID = (self.membrane.shape[0] - 1) / 2.0
+        for i, j in self.ignore:
+            if (i - MID) ** 2 + (j - MID) ** 2 >= (MID**2 + 1):
+                self.ignore[i, j] = 1
+            else:
+                self.ignore[i, j] = 0
 
     @ti.kernel
     def draw(self, scale: int):
         for i, j in self.image:
             if self.ignore[i // scale, j // scale] == 1:
-                self.image[i, j] = ti.Vector([0.0, 0.0, 0.0, 0.0])
+                self.image[i, j] = ti.Vector([0.0, 0.0, 0.0])
             else:
                 self.image[i, j] = (
                     self.membrane[i // scale, j // scale] / 2.0 + 0.5
-                ) * ti.Vector([1.0, 1.0, 1.0, 1.0])
-                self.image[i, j][3] = 1.0
+                ) * ti.Vector([1.0, 1.0, 1.0])
 
     def show(self, scale: int = 1, speed: int = 1):
         """
@@ -70,7 +72,7 @@ class Membrane:
         i_size, j_size = self.membrane.shape
         scaled_size = (scale * i_size, scale * j_size)
         gui = ti.GUI("Membrane example", res=scaled_size, fast_gui=True)
-        self.image = ti.Vector.field(4, float, shape=scaled_size)
+        self.image = ti.Vector.field(3, float, shape=scaled_size)
 
         while gui.running:
             self.draw(scale)
