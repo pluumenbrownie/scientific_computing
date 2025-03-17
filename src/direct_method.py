@@ -51,30 +51,33 @@ class direct_method:
             for j in range(self.N):
                 x = -self.L + i * self.dx  # convert index to x-coordinate
                 y = -self.L + j * self.dy
-                index = i * self.N + j  # convert (i, j) to 1D index
+                index = j * self.N + i
 
-                # grids outside the circular domain
+                # apply boundary conditions
                 if (x**2 + y**2) > self.L**2:
                     self.M[index, index] = 1
+                    self.b[index] = 0
                     continue
 
-                # Five-point stencil inside the domain
+                # apply source condition
+                if i == self.source_x and j == self.source_y:
+                    self.M[index, index] = 1
+                    self.b[index] = 1
+                    continue
+
+                # apply 5-point stencil for Laplacian
                 self.M[index, index] = -4
-                if i > 0:  # left neighbor
-                    self.M[index, index - self.N] = 1
-                if i < self.N - 1:  # right neighbor
-                    self.M[index, index + self.N] = 1
-                if j > 0:  # bottom neighbor
+                if i > 0:  # Left
                     self.M[index, index - 1] = 1
-                if j < self.N - 1:  # top neighbor
+                if i < self.N - 1:  # Right
                     self.M[index, index + 1] = 1
+                if j > 0:  # Bottom
+                    self.M[index, index - self.N] = 1
+                if j < self.N - 1:  # Top
+                    self.M[index, index + self.N] = 1
 
-        # apply source term
-        source_index = self.source_y * self.N + self.source_x
-        self.b[source_index] = 1.0
-
-        # convert matrix to CSC format
-        self.M = self.M.tocsc()
+        # convert matrix to CSR format
+        self.M = self.M.tocsr()
 
     def matrix_solve(self):
         """
@@ -82,6 +85,7 @@ class direct_method:
         """
         v = spla.spsolve(self.M, self.b)
         v_reshaped = v.reshape((self.N, self.N))
+
         self.copy_solution_to_taichi(v_reshaped)  # transform into tichi field
 
     @ti.kernel
@@ -105,7 +109,13 @@ class direct_method:
 
         plt.figure(figsize=(8, 6))
         plt.pcolormesh(
-            x_rescale, y_rescale, concentration, shading="auto", cmap="inferno"
+            x_rescale,
+            y_rescale,
+            concentration,
+            shading="auto",
+            cmap="inferno",
+            vmin=0,
+            vmax=concentration.max(),
         )
         boundary = plt.Circle(
             (0, 0),
