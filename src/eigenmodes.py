@@ -2,6 +2,7 @@ import taichi as ti
 import numpy as np
 from numpy.typing import NDArray
 from typing import Any, Self
+from scipy.linalg import eig
 
 
 @ti.data_oriented
@@ -103,38 +104,109 @@ class Membrane:
             gui.show()
 
 
+@ti.data_oriented
 class Solver:
     def __init__(self, membrane: Membrane) -> None:
         self.adjecency_matrix = np.zeros(
             shape=(membrane.cell_count, membrane.cell_count)
         )
-        rankeded_membrane = membrane.cell_number.to_numpy()
-        print(rankeded_membrane)
-        for i, j in np.ndindex(rankeded_membrane.shape):
-            if rankeded_membrane[i, j] == 0:
+        self.ranked_membrane = membrane.cell_number.to_numpy()
+        for i, j in np.ndindex(self.ranked_membrane.shape):
+            if self.ranked_membrane[i, j] == 0:
                 continue
-            cell_rank = rankeded_membrane[i, j] - 1
+            cell_rank = self.ranked_membrane[i, j] - 1
             self.adjecency_matrix[cell_rank, cell_rank] = -4.0
             for ni, nj in [[i - 1, j], [i + 1, j], [i, j - 1], [i, j + 1]]:
                 if (
                     ni < 0
-                    or ni >= rankeded_membrane.shape[0]
+                    or ni >= self.ranked_membrane.shape[0]
                     or nj < 0
-                    or nj >= rankeded_membrane.shape[1]
-                    or rankeded_membrane[ni, nj] == 0
+                    or nj >= self.ranked_membrane.shape[1]
+                    or self.ranked_membrane[ni, nj] == 0
                 ):
                     continue
-                neighbor_rank = rankeded_membrane[ni, nj] - 1
-                print(neighbor_rank)
+                neighbor_rank = self.ranked_membrane[ni, nj] - 1
                 self.adjecency_matrix[cell_rank, neighbor_rank] = 1.0
+
+    def solve(self):
+        print(eig(self.adjecency_matrix)[0])
+
+
+@ti.data_oriented
+class TaichiSolver:
+    def __init__(self, membrane: Membrane) -> None:
+        self.adjecency_matrix = ti.field(
+            float, shape=(membrane.cell_count, membrane.cell_count)
+        )
+        self.ranked_membrane = membrane.cell_number
+        self.construct_adjecency_matrix()
+
+    @ti.kernel
+    def construct_adjecency_matrix(self):
+        for i, j in self.ranked_membrane:
+            if self.ranked_membrane[i, j] == 0:
+                continue
+            cell_rank = self.ranked_membrane[i, j] - 1
+            self.adjecency_matrix[cell_rank, cell_rank] = -4.0
+            for ni, nj in ti.static([[i - 1, j], [i + 1, j], [i, j - 1], [i, j + 1]]):
+                if not (
+                    ni < 0
+                    or ni >= self.ranked_membrane.shape[0]
+                    or nj < 0
+                    or nj >= self.ranked_membrane.shape[1]
+                    or self.ranked_membrane[ni, nj] == 0
+                ):
+                    neighbor_rank = self.ranked_membrane[ni, nj] - 1
+                    self.adjecency_matrix[cell_rank, neighbor_rank] = 1.0
+
+    def solve(self):
+        print(eig(self.adjecency_matrix.to_numpy())[0])
+
+
+@ti.data_oriented
+class SparseSolver:
+    def __init__(self, membrane: Membrane) -> None:
+        self.adjecency_matrix = ti.linalg.SparseMatrixBuilder(
+            membrane.cell_count, membrane.cell_count, max_num_triplets=100
+        )
+        self.ranked_membrane = membrane.cell_number
+        self.construct_adjecency_matrix()
+        print(self.adjecency_matrix.print_triplets())
+
+    @ti.kernel
+    def construct_adjecency_matrix(self):
+        for i, j in self.ranked_membrane:
+            if self.ranked_membrane[i, j] == 0:
+                continue
+            cell_rank = self.ranked_membrane[i, j] - 1
+            self.adjecency_matrix[cell_rank, cell_rank] += -4.0
+            for ni, nj in ti.static([[i - 1, j], [i + 1, j], [i, j - 1], [i, j + 1]]):
+                if not (
+                    ni < 0
+                    or ni >= self.ranked_membrane.shape[0]
+                    or nj < 0
+                    or nj >= self.ranked_membrane.shape[1]
+                    or self.ranked_membrane[ni, nj] == 0
+                ):
+                    neighbor_rank = self.ranked_membrane[ni, nj] - 1
+                    self.adjecency_matrix[cell_rank, neighbor_rank] += 1.0
+    
+    def solve(self):
+        
 
 
 if __name__ == "__main__":
     ti.init(arch=ti.cpu)
 
     mem = Membrane.circle(4)
-    print(mem.cell_number)
     print(f"{mem.cell_count = }")
     solver = Solver(mem)
     print(solver.adjecency_matrix)
+    solver.solve()
+    tisolver = TaichiSolver(mem)
+    print(tisolver.adjecency_matrix)
+    tisolver.solve()
+    spsolver = SparseSolver(mem)
+    print(spsolver.adjecency_matrix)
+    spsolver.solve()
     # mem.show(scale=4)
