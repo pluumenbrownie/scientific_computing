@@ -3,7 +3,7 @@ import numpy as np
 from numpy.typing import NDArray
 from typing import Any, Self
 from scipy.linalg import eigh
-from scipy.sparse.linalg import eigs
+from scipy.sparse.linalg import eigsh
 
 
 @ti.data_oriented
@@ -167,13 +167,20 @@ class TaichiSolver:
 @ti.data_oriented
 class SparseSolver(TaichiSolver):
     def solve(self):
-        print(eigs(self.adjecency_matrix.to_numpy())[0])
+        """
+        Need to fine tune `k` to get the desired amount of eigenvalues.
+
+        https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.linalg.eigsh.html#scipy.sparse.linalg.eigsh
+        https://stackoverflow.com/questions/11083660/python-eigenvectors-differences-among-numpy-linalg-scipy-linalg-and-scipy-spar?rq=3
+        https://en.wikipedia.org/wiki/Lanczos_algorithm
+        """
+        print(eigsh(self.adjecency_matrix.to_numpy(), k=15)[0])
 
 
 if __name__ == "__main__":
     ti.init(arch=ti.cpu)
 
-    mem = Membrane.circle(4)
+    mem = Membrane.square(4)
     print(f"{mem.cell_count = }")
     solver = Solver(mem)
     # print(solver.adjecency_matrix)
