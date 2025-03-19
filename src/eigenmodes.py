@@ -2,7 +2,7 @@ import taichi as ti
 import numpy as np
 from numpy.typing import NDArray
 from typing import Any, Self
-from scipy.linalg import eigh
+from scipy.linalg import eigh, eig, eig
 from scipy.sparse.linalg import eigsh
 
 
@@ -23,35 +23,40 @@ class Membrane:
     cell_number: ti.ScalarField | ti.MatrixField
     cell_count: int
 
-    def __init__(self, membrane: Any) -> None:
+    def __init__(self, membrane: Any, h: float) -> None:
         self.membrane = membrane
+        self.h = h
         self.cell_number = ti.field(shape=self.membrane.shape, dtype=int)
         # self.cell_count = ti.field(shape=(), dtype=int)
 
     @classmethod
-    def square(cls, L: int) -> Self:
+    def square(cls, L: int, h: float) -> Self:
         """
         Returns a square membrane.
         """
-        membrane = cls(ti.field(shape=(L, L), dtype=float))
+        N = round(L / h)
+        membrane = cls(ti.field(shape=(N, N), dtype=float), h)
         membrane.cell_count = membrane.number_cells()
         return membrane
 
     @classmethod
-    def rectangle(cls, L1: int, L2: int) -> Self:
+    def rectangle(cls, L1: int, L2: int, h: float) -> Self:
         """
         Returns a rectangular membrane.
         """
-        membrane = cls(ti.field(shape=(L1, L2), dtype=float))
+        N1 = round(L1 / h)
+        N2 = round(L2 / h)
+        membrane = cls(ti.field(shape=(N1, N2), dtype=float), h)
         membrane.cell_count = membrane.number_cells()
         return membrane
 
     @classmethod
-    def circle(cls, L: int) -> Self:
+    def circle(cls, L: int, h: float) -> Self:
         """
         Returns a circular membrane.
         """
-        membrane = cls(ti.field(shape=(L, L), dtype=float))
+        N = round(L / h)
+        membrane = cls(ti.field(shape=(N, N), dtype=float), h)
         membrane.cell_count = membrane.number_circle()
         return membrane
 
@@ -106,39 +111,13 @@ class Membrane:
 
 
 @ti.data_oriented
-class Solver:
-    def __init__(self, membrane: Membrane) -> None:
-        self.adjecency_matrix = np.zeros(
-            shape=(membrane.cell_count, membrane.cell_count)
-        )
-        self.ranked_membrane = membrane.cell_number.to_numpy()
-        for i, j in np.ndindex(self.ranked_membrane.shape):
-            if self.ranked_membrane[i, j] == 0:
-                continue
-            cell_rank = self.ranked_membrane[i, j] - 1
-            self.adjecency_matrix[cell_rank, cell_rank] = -4.0
-            for ni, nj in [[i - 1, j], [i + 1, j], [i, j - 1], [i, j + 1]]:
-                if (
-                    ni < 0
-                    or ni >= self.ranked_membrane.shape[0]
-                    or nj < 0
-                    or nj >= self.ranked_membrane.shape[1]
-                    or self.ranked_membrane[ni, nj] == 0
-                ):
-                    continue
-                neighbor_rank = self.ranked_membrane[ni, nj] - 1
-                self.adjecency_matrix[cell_rank, neighbor_rank] = 1.0
-
-    def solve(self):
-        print(eigh(self.adjecency_matrix)[0])
-
-
-@ti.data_oriented
 class TaichiSolver:
     def __init__(self, membrane: Membrane) -> None:
+        self.membrane = membrane
         self.adjecency_matrix = ti.field(
             ti.f64, shape=(membrane.cell_count, membrane.cell_count)
         )
+        self.spatial_constant = self.membrane.h**2
         self.ranked_membrane = membrane.cell_number
         self.construct_adjecency_matrix()
 
@@ -148,7 +127,7 @@ class TaichiSolver:
             if self.ranked_membrane[i, j] == 0:
                 continue
             cell_rank = self.ranked_membrane[i, j] - 1
-            self.adjecency_matrix[cell_rank, cell_rank] = -4.0
+            self.adjecency_matrix[cell_rank, cell_rank] = -4.0 * self.spatial_constant
             for ni, nj in ti.static([[i - 1, j], [i + 1, j], [i, j - 1], [i, j + 1]]):
                 if not (
                     ni < 0
@@ -158,10 +137,23 @@ class TaichiSolver:
                     or self.ranked_membrane[ni, nj] == 0
                 ):
                     neighbor_rank = self.ranked_membrane[ni, nj] - 1
-                    self.adjecency_matrix[cell_rank, neighbor_rank] = 1.0
+                    self.adjecency_matrix[cell_rank, neighbor_rank] = (
+                        1.0 * self.spatial_constant
+                    )
 
     def solve(self):
-        print(eigh(self.adjecency_matrix.to_numpy())[0])
+        self.eigenvalues, self.eigenvectors = eigh(self.adjecency_matrix.to_numpy())
+
+    def show_eigenvector(self, vector_index: int):
+        vector_to_show = self.eigenvectors[vector_index]
+        for i, j in np.ndindex(self.membrane.membrane.shape):
+            if self.ranked_membrane[i, j] == 0:
+                continue
+            self.membrane.membrane[i, j] = vector_to_show[
+                self.ranked_membrane[i, j] - 1
+            ]
+        print(self.membrane.membrane)
+        self.membrane.show(scale=10)
 
 
 @ti.data_oriented
@@ -174,21 +166,18 @@ class SparseSolver(TaichiSolver):
         https://stackoverflow.com/questions/11083660/python-eigenvectors-differences-among-numpy-linalg-scipy-linalg-and-scipy-spar?rq=3
         https://en.wikipedia.org/wiki/Lanczos_algorithm
         """
-        print(eigsh(self.adjecency_matrix.to_numpy(), k=15)[0])
+        self.eigenvalues, self.eigenvectors = eigsh(
+            self.adjecency_matrix.to_numpy(), k=15
+        )
 
 
 if __name__ == "__main__":
     ti.init(arch=ti.cpu)
 
-    mem = Membrane.square(4)
+    mem = Membrane.circle(1, 0.01)
     print(f"{mem.cell_count = }")
-    solver = Solver(mem)
-    # print(solver.adjecency_matrix)
-    solver.solve()
     tisolver = TaichiSolver(mem)
-    # print(tisolver.adjecency_matrix)
     tisolver.solve()
-    spsolver = SparseSolver(mem)
-    # print(spsolver.adjecency_matrix)
-    spsolver.solve()
-    # mem.show(scale=4)
+    tisolver.show_eigenvector(1)
+    # spsolver = SparseSolver(mem)
+    # spsolver.solve()
