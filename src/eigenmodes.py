@@ -101,7 +101,7 @@ class Membrane:
         """
         i_size, j_size = self.membrane.shape
         scaled_size = (scale * i_size, scale * j_size)
-        gui = ti.GUI("Membrane example", res=scaled_size, fast_gui=True)
+        gui = ti.GUI("Membrane example", res=scaled_size, fast_gui=True)  # type: ignore
         self.image = ti.Vector.field(3, float, shape=scaled_size)
 
         while gui.running:
