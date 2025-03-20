@@ -132,7 +132,7 @@ class direct_method:
         plt.title("Steady State Concentration under Direct Method")
         plt.legend(loc="lower right")
 
-        savepath = "/figures"
+        savepath = "./figures"
         os.makedirs(savepath, exist_ok=True)
         filepath = os.path.join(savepath, "steady_concentration.png")
         plt.savefig(filepath, dpi=300)
