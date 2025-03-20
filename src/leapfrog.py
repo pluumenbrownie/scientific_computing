@@ -1,4 +1,5 @@
 import numpy as np
+import os
 import matplotlib.pyplot as plt
 
 
@@ -46,7 +47,7 @@ class Leapfrog:
             v_half += (F_new / self.mass) * self.time_step  # update the velocity again
             self.velocity[n] = v_half
 
-    def plot(self):
+    def plot(self, name: str):
         """
         Plot the the result for leap-frog simulation
         """
@@ -61,22 +62,27 @@ class Leapfrog:
             label="Velocity (v)",
         )
         plt.xlabel("Time")
-        plt.ylabel("Position")
-        plt.title("Leap-Frog Integration of Oscillatory Motion")
+        plt.ylabel("Value")
+        plt.title(f"Leap-Frog Integration of Oscillatory Motion, {name}")
         plt.legend()
         plt.grid()
+
+        savepath = "./figures"
+        os.makedirs(savepath, exist_ok=True)
+        filepath = os.path.join(savepath, f"leap frog {name} .png")
+        plt.savefig(filepath, dpi=300)
         plt.show()
 
 
 if __name__ == "__main__":
     lf = Leapfrog(mass=1.0, k=1.0, simulation=1000, time_step=0.01)
     lf.leap_frog()
-    lf.plot()
+    lf.plot("k=1.0")
 
     lf2 = Leapfrog(mass=1.0, k=3.0, simulation=1000, time_step=0.01)
     lf2.leap_frog()
-    lf2.plot()
+    lf2.plot("k=3.0")
 
     lf3 = Leapfrog(mass=1.0, k=5.0, simulation=1000, time_step=0.01)
     lf3.leap_frog()
-    lf3.plot()
+    lf3.plot("k=5.0")
