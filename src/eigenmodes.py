@@ -1,6 +1,5 @@
 import taichi as ti
 import numpy as np
-from numpy.typing import NDArray
 from typing import Any, Self
 from scipy.linalg import eigh, eig, eig
 from scipy.sparse.linalg import eigsh
@@ -151,8 +150,8 @@ class Membrane:
         scaled_size = self.create_image(scale)
         gui = ti.GUI("Membrane example", res=scaled_size, fast_gui=True)  # type: ignore
 
+        self.draw(scale, abs_highest)
         while gui.running:
-            self.draw(scale, abs_highest)
             gui.set_image(self.image)
             gui.show()
 
@@ -204,14 +203,15 @@ class TaichiSolver:
 
     def show_eigenvector(self, vector_index: int):
         vector_to_show = self.eigenvectors[vector_index]
+        self.load_into_membrane(vector_to_show)
+        absolute_highest_value = max(abs(min(vector_to_show)), abs(max(vector_to_show)))
+        self.membrane.show(scale=10, abs_highest=absolute_highest_value)
+
+    def load_into_membrane(self, eigenvector):
         for i, j in np.ndindex(self.membrane.membrane.shape):
             if self.ranked_membrane[i, j] == 0:
                 continue
-            self.membrane.membrane[i, j] = vector_to_show[
-                self.ranked_membrane[i, j] - 1
-            ]
-        absolute_highest_value = max(abs(min(vector_to_show)), abs(max(vector_to_show)))
-        self.membrane.show(scale=10, abs_highest=absolute_highest_value)
+            self.membrane.membrane[i, j] = eigenvector[self.ranked_membrane[i, j] - 1]
 
 
 @ti.data_oriented
