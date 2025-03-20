@@ -30,7 +30,7 @@ class Membrane:
         # self.cell_count = ti.field(shape=(), dtype=int)
 
     @classmethod
-    def square(cls, L: int, h: float) -> Self:
+    def square(cls, L: float, h: float) -> Self:
         """
         Returns a square membrane.
         """
@@ -40,7 +40,7 @@ class Membrane:
         return membrane
 
     @classmethod
-    def rectangle(cls, L1: int, L2: int, h: float) -> Self:
+    def rectangle(cls, L1: float, L2: float, h: float) -> Self:
         """
         Returns a rectangular membrane.
         """
@@ -51,7 +51,7 @@ class Membrane:
         return membrane
 
     @classmethod
-    def circle(cls, L: int, h: float) -> Self:
+    def circle(cls, L: float, h: float) -> Self:
         """
         Returns a circular membrane.
         """
@@ -83,29 +83,51 @@ class Membrane:
         return cell_count
 
     @ti.kernel
-    def draw(self, scale: int):
+    def draw(self, scale: int, abs_highest: float):
         for i, j in self.image:
             if self.cell_number[i // scale, j // scale] == 0:
                 self.image[i, j] = ti.Vector([0.0, 0.0, 0.0])
             else:
-                self.image[i, j] = (
-                    self.membrane[i // scale, j // scale] / 2.0 + 0.5
-                ) * ti.Vector([1.0, 1.0, 1.0])
+                mem_value = self.membrane[i // scale, j // scale]
+                if mem_value < 0:
+                    self.image[i, j] = ti.Vector(
+                        [
+                            1.0 + mem_value / abs_highest,
+                            1.0 + mem_value / abs_highest,
+                            1.0,
+                        ]
+                    )
+                else:
+                    self.image[i, j] = ti.Vector(
+                        [
+                            1.0,
+                            1.0 - mem_value / abs_highest,
+                            1.0 - mem_value / abs_highest,
+                        ]
+                    )
 
-    def show(self, scale: int = 1):
+    def create_image(self, scale: int = 1) -> tuple[int, int]:
+        """
+        Create a `self.image` field and return its resolution.
+        """
+        i_size, j_size = self.membrane.shape
+        scaled_size = (scale * i_size, scale * j_size)
+        self.image = ti.Vector.field(3, float, shape=scaled_size)
+        return scaled_size
+
+    def show(self, scale: int = 1, abs_highest: float = 1.0):
         """
         Run diffusion steps and show the resulting diffusions live until closed.
 
         # Inputs:
         - scale: How much the shown video should be scaled. Default = 1
+        - abs_highest: The highest absolute value found in the dataset. Default = 1.0
         """
-        i_size, j_size = self.membrane.shape
-        scaled_size = (scale * i_size, scale * j_size)
+        scaled_size = self.create_image(scale)
         gui = ti.GUI("Membrane example", res=scaled_size, fast_gui=True)  # type: ignore
-        self.image = ti.Vector.field(3, float, shape=scaled_size)
 
         while gui.running:
-            self.draw(scale)
+            self.draw(scale, abs_highest)
             gui.set_image(self.image)
             gui.show()
 
@@ -152,8 +174,8 @@ class TaichiSolver:
             self.membrane.membrane[i, j] = vector_to_show[
                 self.ranked_membrane[i, j] - 1
             ]
-        print(self.membrane.membrane)
-        self.membrane.show(scale=10)
+        absolute_highest_value = max(abs(min(vector_to_show)), abs(max(vector_to_show)))
+        self.membrane.show(scale=10, abs_highest=absolute_highest_value)
 
 
 @ti.data_oriented
@@ -167,17 +189,17 @@ class SparseSolver(TaichiSolver):
         https://en.wikipedia.org/wiki/Lanczos_algorithm
         """
         self.eigenvalues, self.eigenvectors = eigsh(
-            self.adjecency_matrix.to_numpy(), k=15
+            self.adjecency_matrix.to_numpy(), k=15, which="SM"
         )
 
 
 if __name__ == "__main__":
     ti.init(arch=ti.cpu)
 
-    mem = Membrane.circle(1, 0.05)
+    mem = Membrane.rectangle(1.5, 1, 0.05)
     print(f"{mem.cell_count = }")
-    tisolver = TaichiSolver(mem)
+    tisolver = SparseSolver(mem)
     tisolver.solve()
-    tisolver.show_eigenvector(-1)
+    tisolver.show_eigenvector(-3)
     # spsolver = SparseSolver(mem)
     # spsolver.solve()
