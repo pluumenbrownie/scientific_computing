@@ -145,7 +145,7 @@ class TaichiSolver:
         self.eigenvalues, self.eigenvectors = eigh(self.adjecency_matrix.to_numpy())
 
     def show_eigenvector(self, vector_index: int):
-        vector_to_show = self.eigenvectors[vector_index]
+        vector_to_show = self.eigenvectors[:, vector_index]
         for i, j in np.ndindex(self.membrane.membrane.shape):
             if self.ranked_membrane[i, j] == 0:
                 continue
@@ -174,10 +174,10 @@ class SparseSolver(TaichiSolver):
 if __name__ == "__main__":
     ti.init(arch=ti.cpu)
 
-    mem = Membrane.circle(1, 0.01)
+    mem = Membrane.circle(1, 0.05)
     print(f"{mem.cell_count = }")
     tisolver = TaichiSolver(mem)
     tisolver.solve()
-    tisolver.show_eigenvector(1)
+    tisolver.show_eigenvector(-1)
     # spsolver = SparseSolver(mem)
     # spsolver.solve()
