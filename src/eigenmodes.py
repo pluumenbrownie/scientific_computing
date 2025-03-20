@@ -62,6 +62,14 @@ class Membrane:
 
     @ti.kernel
     def number_cells(self) -> int:
+        """
+        Docstring for number_cells
+
+        :param self: Description
+        :type self:
+        :return: Description
+        :rtype: int
+        """
         cell_count = 0
         ti.loop_config(serialize=True)
         for i, j in self.membrane:
@@ -71,6 +79,10 @@ class Membrane:
 
     @ti.kernel
     def number_circle(self) -> int:
+        """
+        Rank the cells which fall within the inscribed circle, set all others
+        to 0.
+        """
         MID = (self.membrane.shape[0] - 1) / 2.0
         cell_count = 0
         ti.loop_config(serialize=True)
@@ -84,6 +96,16 @@ class Membrane:
 
     @ti.kernel
     def draw(self, scale: int, abs_highest: float):
+        """
+        Draw an image to `self.image`.
+
+        :param self:
+        :type self:
+        :param scale: How much to scale the image.
+        :type scale: int
+        :param abs_highest: The highest absolute value in the dataset.
+        :type abs_highest: float
+        """
         for i, j in self.image:
             if self.cell_number[i // scale, j // scale] == 0:
                 self.image[i, j] = ti.Vector([0.0, 0.0, 0.0])
@@ -109,6 +131,9 @@ class Membrane:
     def create_image(self, scale: int = 1) -> tuple[int, int]:
         """
         Create a `self.image` field and return its resolution.
+
+        :param scale: How much to scale the image.
+        :type scale: int
         """
         i_size, j_size = self.membrane.shape
         scaled_size = (scale * i_size, scale * j_size)
@@ -134,6 +159,11 @@ class Membrane:
 
 @ti.data_oriented
 class TaichiSolver:
+    """
+    Class to find the eigenfrequencies of supplied 2D membranes using matrix
+    solving methods.
+    """
+
     def __init__(self, membrane: Membrane) -> None:
         self.membrane = membrane
         self.adjecency_matrix = ti.field(
@@ -164,10 +194,16 @@ class TaichiSolver:
                     )
 
     def solve(self):
+        """
+        Use the `scipy.linalg.eigh()` function to solve the eigenvalue problem.
+        Results are stored in `self.eigenvalues` and `self.eigenvectors`.
+        """
         self.eigenvalues, self.eigenvectors = eigh(self.adjecency_matrix.to_numpy())
+        self.eigenvalues = np.flip(self.eigenvalues)
+        self.eigenvectors = np.rot90(self.eigenvectors)
 
     def show_eigenvector(self, vector_index: int):
-        vector_to_show = self.eigenvectors[:, vector_index]
+        vector_to_show = self.eigenvectors[vector_index]
         for i, j in np.ndindex(self.membrane.membrane.shape):
             if self.ranked_membrane[i, j] == 0:
                 continue
@@ -180,16 +216,25 @@ class TaichiSolver:
 
 @ti.data_oriented
 class SparseSolver(TaichiSolver):
-    def solve(self):
-        """
-        Need to fine tune `k` to get the desired amount of eigenvalues.
+    """
+    Class to find the eigenfrequencies of supplied 2D membranes using sparse
+    matrix solving methods.
+    """
 
-        https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.linalg.eigsh.html#scipy.sparse.linalg.eigsh
-        https://stackoverflow.com/questions/11083660/python-eigenvectors-differences-among-numpy-linalg-scipy-linalg-and-scipy-spar?rq=3
-        https://en.wikipedia.org/wiki/Lanczos_algorithm
+    def solve(self, k: int = 15):
+        """
+        Use the `scipy.linalg.eigh()` function to solve the eigenvalue problem.
+        Results are stored in `self.eigenvalues` and `self.eigenvectors`.
+
+        :param k: The amount of eigenvectors generated.
+        :type k: float
+
+        - https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.linalg.eigsh.html#scipy.sparse.linalg.eigsh
+        - https://stackoverflow.com/questions/11083660/python-eigenvectors-differences-among-numpy-linalg-scipy-linalg-and-scipy-spar?rq=3
+        - https://en.wikipedia.org/wiki/Lanczos_algorithm
         """
         self.eigenvalues, self.eigenvectors = eigsh(
-            self.adjecency_matrix.to_numpy(), k=15, which="SM"
+            self.adjecency_matrix.to_numpy(), k=k, which="SM"
         )
 
 
@@ -198,8 +243,8 @@ if __name__ == "__main__":
 
     mem = Membrane.rectangle(1.5, 1, 0.05)
     print(f"{mem.cell_count = }")
-    tisolver = SparseSolver(mem)
+    tisolver = TaichiSolver(mem)
     tisolver.solve()
-    tisolver.show_eigenvector(-3)
+    tisolver.show_eigenvector(1)
     # spsolver = SparseSolver(mem)
     # spsolver.solve()
