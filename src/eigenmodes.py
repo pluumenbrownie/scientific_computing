@@ -22,6 +22,7 @@ class Membrane:
     cell_number: ti.ScalarField | ti.MatrixField
     image: ti.ScalarField | ti.MatrixField
     cell_count: int
+    name: str
 
     def __init__(self, membrane: Any, h: float, ui_scale: int) -> None:
         self.membrane = membrane
@@ -47,6 +48,7 @@ class Membrane:
         N = round(L / h)
         membrane = cls(ti.field(shape=(N, N), dtype=float), h, ui_scale=ui_scale)
         membrane.cell_count = membrane.number_cells()
+        membrane.name = "Square"
         return membrane
 
     @classmethod
@@ -69,6 +71,7 @@ class Membrane:
         N2 = round(L2 / h)
         membrane = cls(ti.field(shape=(N1, N2), dtype=float), h, ui_scale=ui_scale)
         membrane.cell_count = membrane.number_cells()
+        membrane.name = "Rectangle"
         return membrane
 
     @classmethod
@@ -88,6 +91,7 @@ class Membrane:
         N = round(L / h)
         membrane = cls(ti.field(shape=(N, N), dtype=float), h, ui_scale=ui_scale)
         membrane.cell_count = membrane.number_circle()
+        membrane.name = "Circle"
         return membrane
 
     @ti.kernel
@@ -183,6 +187,9 @@ class Membrane:
             gui.set_image(self.image)
             gui.show()
 
+    def __str__(self) -> str:
+        return self.name
+
 
 @ti.data_oriented
 class TaichiSolver:
@@ -264,13 +271,14 @@ class SparseSolver(TaichiSolver):
         self.eigenvalues, self.eigenvectors = eigsh(
             self.adjecency_matrix.to_numpy(), k=k, which="SM"
         )
+        self.eigenvalues = np.flip(self.eigenvalues)
         self.eigenvectors = np.rot90(self.eigenvectors)
 
 
 if __name__ == "__main__":
     ti.init(arch=ti.cpu)
 
-    mem = Membrane.square(1.0, 0.02, ui_scale=10)
+    mem = Membrane.rectangle(2.0, 1.0, 0.02, ui_scale=10)
     print(f"{mem.cell_count = }")
     tisolver = TaichiSolver(mem)
     tisolver.solve()
