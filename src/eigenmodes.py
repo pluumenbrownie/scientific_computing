@@ -1,7 +1,7 @@
 import taichi as ti
 import numpy as np
 from typing import Any, Self
-from scipy.linalg import eigh, eig, eig
+from scipy.linalg import eigh
 from scipy.sparse.linalg import eigsh
 
 
@@ -20,42 +20,73 @@ class Membrane:
 
     membrane: ti.ScalarField | ti.MatrixField
     cell_number: ti.ScalarField | ti.MatrixField
+    image: ti.ScalarField | ti.MatrixField
     cell_count: int
 
-    def __init__(self, membrane: Any, h: float) -> None:
+    def __init__(self, membrane: Any, h: float, ui_scale: int) -> None:
         self.membrane = membrane
         self.h = h
         self.cell_number = ti.field(shape=self.membrane.shape, dtype=int)
-        # self.cell_count = ti.field(shape=(), dtype=int)
+        self.scale = ui_scale
+        self.new_image(ui_scale)
 
     @classmethod
-    def square(cls, L: float, h: float) -> Self:
+    def square(cls, L: float, h: float, ui_scale: int = 1) -> Self:
         """
         Returns a square membrane.
+
+        :param L: The sidelength of the membrane.
+        :type L: float
+        :param h: The grid spacing.
+        :type h: float
+        :param ui_scale: How much to scale the image when shown.
+        :type ui_scale: int
+        :return:
+        :rtype: Self
         """
         N = round(L / h)
-        membrane = cls(ti.field(shape=(N, N), dtype=float), h)
+        membrane = cls(ti.field(shape=(N, N), dtype=float), h, ui_scale=ui_scale)
         membrane.cell_count = membrane.number_cells()
         return membrane
 
     @classmethod
-    def rectangle(cls, L1: float, L2: float, h: float) -> Self:
+    def rectangle(cls, L1: float, L2: float, h: float, ui_scale: int = 1) -> Self:
         """
         Returns a rectangular membrane.
+
+        :param L1: The horizontal sidelength of the membrane.
+        :type L1: float
+        :param L2: The vertial sidelength of the membrane.
+        :type L2: float
+        :param h: The grid spacing.
+        :type h: float
+        :param ui_scale: How much to scale the image when shown.
+        :type ui_scale: int
+        :return:
+        :rtype: Self
         """
         N1 = round(L1 / h)
         N2 = round(L2 / h)
-        membrane = cls(ti.field(shape=(N1, N2), dtype=float), h)
+        membrane = cls(ti.field(shape=(N1, N2), dtype=float), h, ui_scale=ui_scale)
         membrane.cell_count = membrane.number_cells()
         return membrane
 
     @classmethod
-    def circle(cls, L: float, h: float) -> Self:
+    def circle(cls, L: float, h: float, ui_scale: int = 1) -> Self:
         """
         Returns a circular membrane.
+
+        :param L: The sidelength of the membrane.
+        :type L: float
+        :param h: The grid spacing.
+        :type h: float
+        :param ui_scale: How much to scale the image when shown.
+        :type ui_scale: int
+        :return:
+        :rtype: Self
         """
         N = round(L / h)
-        membrane = cls(ti.field(shape=(N, N), dtype=float), h)
+        membrane = cls(ti.field(shape=(N, N), dtype=float), h, ui_scale=ui_scale)
         membrane.cell_count = membrane.number_circle()
         return membrane
 
@@ -64,9 +95,7 @@ class Membrane:
         """
         Docstring for number_cells
 
-        :param self: Description
-        :type self:
-        :return: Description
+        :return: The total amount of cells in the membrane.
         :rtype: int
         """
         cell_count = 0
@@ -81,6 +110,9 @@ class Membrane:
         """
         Rank the cells which fall within the inscribed circle, set all others
         to 0.
+
+        :return: The total amount of cells in the membrane.
+        :rtype: int
         """
         MID = (self.membrane.shape[0] - 1) / 2.0
         cell_count = 0
@@ -94,27 +126,25 @@ class Membrane:
         return cell_count
 
     @ti.kernel
-    def draw(self, scale: int, abs_highest: float):
+    def draw(self, abs_highest: float):
         """
         Draw an image to `self.image`.
 
         :param self:
         :type self:
-        :param scale: How much to scale the image.
-        :type scale: int
         :param abs_highest: The highest absolute value in the dataset.
         :type abs_highest: float
         """
         for i, j in self.image:
-            if self.cell_number[i // scale, j // scale] == 0:
+            if self.cell_number[i // self.scale, j // self.scale] == 0:
                 self.image[i, j] = ti.Vector([0.0, 0.0, 0.0])
             else:
-                mem_value = self.membrane[i // scale, j // scale]
-                if mem_value < 0:
+                memb_value = self.membrane[i // self.scale, j // self.scale]
+                if memb_value < 0:
                     self.image[i, j] = ti.Vector(
                         [
-                            1.0 + mem_value / abs_highest,
-                            1.0 + mem_value / abs_highest,
+                            1.0 + memb_value / abs_highest,
+                            1.0 + memb_value / abs_highest,
                             1.0,
                         ]
                     )
@@ -122,16 +152,16 @@ class Membrane:
                     self.image[i, j] = ti.Vector(
                         [
                             1.0,
-                            1.0 - mem_value / abs_highest,
-                            1.0 - mem_value / abs_highest,
+                            1.0 - memb_value / abs_highest,
+                            1.0 - memb_value / abs_highest,
                         ]
                     )
 
-    def create_image(self, scale: int = 1) -> tuple[int, int]:
+    def new_image(self, scale: int = 1) -> tuple[int, int]:
         """
         Create a `self.image` field and return its resolution.
 
-        :param scale: How much to scale the image.
+        :param scale: The resulting image will be `scale * self.membrane.shape`.
         :type scale: int
         """
         i_size, j_size = self.membrane.shape
@@ -139,7 +169,7 @@ class Membrane:
         self.image = ti.Vector.field(3, float, shape=scaled_size)
         return scaled_size
 
-    def show(self, scale: int = 1, abs_highest: float = 1.0):
+    def show(self, abs_highest: float = 1.0):
         """
         Run diffusion steps and show the resulting diffusions live until closed.
 
@@ -147,10 +177,8 @@ class Membrane:
         - scale: How much the shown video should be scaled. Default = 1
         - abs_highest: The highest absolute value found in the dataset. Default = 1.0
         """
-        scaled_size = self.create_image(scale)
-        gui = ti.GUI("Membrane example", res=scaled_size, fast_gui=True)  # type: ignore
-
-        self.draw(scale, abs_highest)
+        gui = ti.GUI("Membrane example", res=self.image.shape, fast_gui=True)  # type: ignore
+        self.draw(abs_highest)
         while gui.running:
             gui.set_image(self.image)
             gui.show()
@@ -205,7 +233,7 @@ class TaichiSolver:
         vector_to_show = self.eigenvectors[vector_index]
         self.load_into_membrane(vector_to_show)
         absolute_highest_value = max(abs(min(vector_to_show)), abs(max(vector_to_show)))
-        self.membrane.show(scale=10, abs_highest=absolute_highest_value)
+        self.membrane.show(abs_highest=absolute_highest_value)
 
     def load_into_membrane(self, eigenvector):
         for i, j in np.ndindex(self.membrane.membrane.shape):
@@ -236,15 +264,17 @@ class SparseSolver(TaichiSolver):
         self.eigenvalues, self.eigenvectors = eigsh(
             self.adjecency_matrix.to_numpy(), k=k, which="SM"
         )
+        self.eigenvectors = np.rot90(self.eigenvectors)
 
 
 if __name__ == "__main__":
     ti.init(arch=ti.cpu)
 
-    mem = Membrane.rectangle(1.5, 1, 0.05)
+    mem = Membrane.square(1.0, 0.02, ui_scale=10)
     print(f"{mem.cell_count = }")
     tisolver = TaichiSolver(mem)
     tisolver.solve()
-    tisolver.show_eigenvector(1)
-    # spsolver = SparseSolver(mem)
-    # spsolver.solve()
+    tisolver.show_eigenvector(6)
+    spsolver = SparseSolver(mem)
+    spsolver.solve()
+    spsolver.show_eigenvector(6)
