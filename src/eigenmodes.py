@@ -177,9 +177,8 @@ class Membrane:
         """
         Run diffusion steps and show the resulting diffusions live until closed.
 
-        # Inputs:
-        - scale: How much the shown video should be scaled. Default = 1
-        - abs_highest: The highest absolute value found in the dataset. Default = 1.0
+        :param abs_highest: The highest absolute value found in the dataset. Default = 1.0
+        :type abs_highest: float
         """
         gui = ti.GUI("Membrane example", res=self.image.shape, fast_gui=True)  # type: ignore
         self.draw(abs_highest)
