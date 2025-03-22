@@ -43,24 +43,32 @@ class Leapfrog:
         Simulate the leap frog calculation, based on Hooke's law
         """
         self.initial_condition()
-        v_half = 0
+
+        # initialize v_half
+        v_half = 0.5 * self.k * self.position[0] * self.time_step / self.mass
+        self.velocity[0] = v_half
+
         for n in range(1, self.simulation):
             # update position at full-step using v at half-step
             self.position[n] = self.position[n - 1] + v_half * self.time_step
             F_new = -self.k * self.position[n]
 
-            # update v at next half-step
+            # update velocity
             v_half += (F_new / self.mass) * self.time_step
 
             # store velocity at half step
-            self.velocity[n] = v_half + 0.5 * (F_new / self.mass) * self.time_step
+            self.velocity[n] = v_half
 
     def time_dependent_force(self, time: float):
         """
         Add a time dependent sinusoidal driving force to the 1D osillator
         """
         self.initial_condition()
-        v_half = 0
+
+        # initialize v_half
+        v_half = 0.5 * self.k * self.position[0] * self.time_step / self.mass
+        self.velocity[0] = v_half
+
         for n in range(1, self.simulation):
             time = n * self.time_step
             self.position[n] = self.position[n - 1] + v_half * self.time_step
@@ -70,7 +78,7 @@ class Leapfrog:
             v_half += F_new / self.mass * self.time_step
 
             # store velocity at half step
-            self.velocity[n] = v_half + 0.5 * (F_new / self.mass) * self.time_step
+            self.velocity[n] = v_half
 
     def plot(self, name: str):
         """
