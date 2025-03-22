@@ -143,7 +143,22 @@ def eigenfrequency_plot(path: str):
     plt.close()
 
 
+def animate_eigenvectors(folder: str):
+    L = 1.0
+    h = 0.02
+    save_modes = list(range(0, 7))
+    animation_speed = 10.0
+
+    shape = Membrane.circle(L, h, ui_scale=4)
+    solver = SparseSolver(shape)
+    solver.solve(k=7)
+
+    for mode in save_modes:
+        solver.save_eigenvector_animation(mode, dt=animation_speed, output_dir=folder)
+
+
 if __name__ == "__main__":
     ti.init()
     # eigenmode_collage("local/eigenmode_collage.pdf")
-    eigenfrequency_plot("local/eigenfrequencies.pdf")
+    # eigenfrequency_plot("local/eigenfrequencies.pdf")
+    animate_eigenvectors("local")

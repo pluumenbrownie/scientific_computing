@@ -3,6 +3,7 @@ import numpy as np
 from typing import Any, Self
 from scipy.linalg import eigh
 from scipy.sparse.linalg import eigsh
+import os
 
 
 @ti.data_oriented
@@ -161,6 +162,40 @@ class Membrane:
                         ]
                     )
 
+    @ti.kernel
+    def animated_draw(self, abs_highest: float, frequency: float, t: float):
+        """
+        Draw an image to `self.image`.
+
+        :param self:
+        :type self:
+        :param abs_highest: The highest absolute value in the dataset.
+        :type abs_highest: float
+        """
+        for i, j in self.image:
+            if self.cell_number[i // self.scale, j // self.scale] == 0:
+                self.image[i, j] = ti.Vector([0.0, 0.0, 0.0])
+            else:
+                memb_value = self.membrane[i // self.scale, j // self.scale]
+                memb_value *= ti.sin(2 * np.pi * frequency * t)
+
+                if memb_value < 0:
+                    self.image[i, j] = ti.Vector(
+                        [
+                            1.0 + memb_value / abs_highest,
+                            1.0 + memb_value / abs_highest,
+                            1.0,
+                        ]
+                    )
+                else:
+                    self.image[i, j] = ti.Vector(
+                        [
+                            1.0,
+                            1.0 - memb_value / abs_highest,
+                            1.0 - memb_value / abs_highest,
+                        ]
+                    )
+
     def new_image(self, scale: int = 1) -> tuple[int, int]:
         """
         Create a `self.image` field and return its resolution.
@@ -175,16 +210,68 @@ class Membrane:
 
     def show(self, abs_highest: float = 1.0):
         """
-        Run diffusion steps and show the resulting diffusions live until closed.
+        Show current state of the membrane.
 
         :param abs_highest: The highest absolute value found in the dataset. Default = 1.0
         :type abs_highest: float
         """
-        gui = ti.GUI("Membrane example", res=self.image.shape, fast_gui=True)  # type: ignore
+        gui = ti.GUI("Membrane", res=self.image.shape, fast_gui=True)  # type: ignore
         self.draw(abs_highest)
         while gui.running:
             gui.set_image(self.image)
             gui.show()
+
+    def animate(self, frequency: float, abs_highest: float = 1.0, dt: float = 1 / 60):
+        """
+        Animate a vibrating eigenvector
+
+        :param abs_highest: The highest absolute value found in the dataset. Default = 1.0
+        :type abs_highest: float
+        """
+        gui = ti.GUI("Membrane animated", res=self.image.shape, fast_gui=True)  # type: ignore
+        t = 0.0
+        while gui.running:
+            self.animated_draw(abs_highest, frequency, t)
+            gui.set_image(self.image)
+            gui.show()
+            t += dt
+
+    def save_animation(
+        self,
+        frequency: float,
+        frames: int,
+        mode_index: int,
+        abs_highest: float = 1.0,
+        dt: float = 1 / 60,
+        output_dir: str = "./local",
+    ):
+        """
+        Animate a vibrating eigenvector and save to a file
+
+        :param abs_highest: The highest absolute value found in the dataset. Default = 1.0
+        :type abs_highest: float
+        """
+        # gui = ti.GUI("Membrane animated", res=self.image.shape, fast_gui=True, show_gui=False)  # type: ignore
+        video_manager = ti.tools.VideoManager(
+            output_dir=output_dir,
+            framerate=60,
+            automatic_build=True,
+            video_filename=f"{self.name}_{self.membrane.shape[0]}_{self.membrane.shape[1]}_{mode_index}",
+        )
+        t = 0.0
+
+        for _ in range(frames):
+            self.animated_draw(abs_highest, frequency, t)
+            # gui.set_image(self.image)
+            video_manager.write_frame(self.image)
+            t += dt
+        video_manager.make_video(mp4=False, gif=True)
+
+        frame_folder = os.path.join(output_dir, "frames")
+        for fn in os.listdir(frame_folder):
+            if fn.endswith(".png"):
+                os.remove(frame_folder + "/" + fn)
+        os.rmdir(frame_folder)
 
     def __str__(self) -> str:
         return self.name
@@ -236,10 +323,33 @@ class TaichiSolver:
         self.eigenvectors = np.rot90(self.eigenvectors)
 
     def show_eigenvector(self, vector_index: int):
+        eigenfrequency, absolute_highest_value = self.prep_display(vector_index)
+        self.membrane.show(abs_highest=absolute_highest_value)
+
+    def animate_eigenvector(self, vector_index: int, dt: float = 1 / 60):
+        eigenfrequency, absolute_highest_value = self.prep_display(vector_index)
+        self.membrane.animate(eigenfrequency, abs_highest=absolute_highest_value, dt=dt)
+
+    def save_eigenvector_animation(
+        self, vector_index: int, dt: float = 1 / 60, output_dir: str = "local"
+    ):
+        eigenfrequency, absolute_highest_value = self.prep_display(vector_index)
+        self.membrane.save_animation(
+            eigenfrequency,
+            60 * 30,
+            vector_index,
+            abs_highest=absolute_highest_value,
+            dt=dt,
+            output_dir=output_dir,
+        )
+
+    def prep_display(self, vector_index):
         vector_to_show = self.eigenvectors[vector_index]
+        eigenfrequency = np.sqrt(-self.eigenvalues[vector_index])
+
         self.load_into_membrane(vector_to_show)
         absolute_highest_value = max(abs(min(vector_to_show)), abs(max(vector_to_show)))
-        self.membrane.show(abs_highest=absolute_highest_value)
+        return eigenfrequency, absolute_highest_value
 
     def load_into_membrane(self, eigenvector):
         for i, j in np.ndindex(self.membrane.membrane.shape):
@@ -277,11 +387,8 @@ class SparseSolver(TaichiSolver):
 if __name__ == "__main__":
     ti.init(arch=ti.cpu)
 
-    mem = Membrane.rectangle(2.0, 1.0, 0.02, ui_scale=10)
+    mem = Membrane.circle(1.0, 0.02, ui_scale=10)
     print(f"{mem.cell_count = }")
-    tisolver = TaichiSolver(mem)
-    tisolver.solve()
-    tisolver.show_eigenvector(6)
     spsolver = SparseSolver(mem)
     spsolver.solve()
-    spsolver.show_eigenvector(6)
+    spsolver.save_eigenvector_animation(6, dt=10.0)

@@ -6,3 +6,4 @@ ti.init()
 
 eigenmode_collage("figures/eigenmode_collage.pdf")
 eigenfrequency_plot("figures/eigenfrequencies.pdf")
+animate_eigenvectors("figures")
