@@ -45,14 +45,15 @@ class Leapfrog:
         self.initial_condition()
         v_half = 0
         for n in range(1, self.simulation):
-            F = -self.k * self.position[n - 1]  # force at current position
-            v_half += (
-                F / self.mass * self.time_step
-            )  # update velocity for half time step
-            self.position[n] = (
-                self.position[n - 1] + v_half * self.time_step
-            )  # update position using velocity at half time step
-            self.velocity[n] = v_half
+            # update position at full-step using v at half-step
+            self.position[n] = self.position[n - 1] + v_half * self.time_step
+            F_new = -self.k * self.position[n]
+
+            # update v at next half-step
+            v_half += (F_new / self.mass) * self.time_step
+
+            # store velocity at half step
+            self.velocity[n] = v_half + 0.5 * (F_new / self.mass) * self.time_step
 
     def time_dependent_force(self, time: float):
         """
@@ -62,14 +63,14 @@ class Leapfrog:
         v_half = 0
         for n in range(1, self.simulation):
             time = n * self.time_step
-            F = -self.k * self.position[n - 1] + self.A * np.sin(self.omega * time)
-            v_half += (
-                F / self.mass * self.time_step
-            )  # update the velocity for half time step
-            self.position[n] = (
-                self.position[n - 1] + v_half * self.time_step
-            )  # update the position
-            self.velocity[n] = v_half
+            self.position[n] = self.position[n - 1] + v_half * self.time_step
+            F_new = -self.k * self.position[n] + self.A * np.sin(self.omega * time)
+
+            # update the velocity for half time step
+            v_half += F_new / self.mass * self.time_step
+
+            # store velocity at half step
+            self.velocity[n] = v_half + 0.5 * (F_new / self.mass) * self.time_step
 
     def plot(self, name: str):
         """
