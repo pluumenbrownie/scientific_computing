@@ -12,11 +12,21 @@ class Leapfrog:
 
     """
 
-    def __init__(self, mass: float, k: float, simulation: int, time_step: float):
+    def __init__(
+        self,
+        mass: float,
+        k: float,
+        simulation: int,
+        time_step: float,
+        A: float = 1.0,
+        o: float = 1.0,
+    ):
         self.time_step = time_step
         self.simulation = simulation  # number of time steps
         self.mass = mass  # mass
         self.k = k  # spring constant
+        self.A = A  # amplitude of the driving force
+        self.omega = o  # frequency of the driving force
         self.total_time = self.simulation * self.time_step
         self.position = np.zeros(self.simulation)  # store the value of position
         self.velocity = np.zeros(self.simulation)  # store the value of velocity
@@ -42,9 +52,23 @@ class Leapfrog:
             self.position[n] = (
                 self.position[n - 1] + v_half * self.time_step
             )  # update position using velocity at half time step
+            self.velocity[n] = v_half
 
-            F_new = -self.k * self.position[n]
-            v_half += (F_new / self.mass) * self.time_step  # update the velocity again
+    def time_dependent_force(self, time: float):
+        """
+        Add a time dependent sinusoidal driving force to the 1D osillator
+        """
+        self.initial_condition()
+        v_half = 0
+        for n in range(1, self.simulation):
+            time = n * self.time_step
+            F = -self.k * self.position[n - 1] + self.A * np.sin(self.omega * time)
+            v_half += (
+                F / self.mass * self.time_step
+            )  # update the velocity for half time step
+            self.position[n] = (
+                self.position[n - 1] + v_half * self.time_step
+            )  # update the position
             self.velocity[n] = v_half
 
     def plot(self, name: str):
@@ -73,6 +97,29 @@ class Leapfrog:
         plt.savefig(filepath, dpi=300)
         plt.show()
 
+    def phase_plot(self, name: str):
+        """
+        Plot the phase plot (v,x) for leap-frog simulation with
+        time-dependent sinusoidal force
+        """
+        # plot the spiral
+        plt.plot(self.position, self.velocity, label="Phase trajectory")
+        plt.plot(self.position[0], self.velocity[0], "ro", label="start point")
+        plt.plot(self.position[-1], self.velocity[-1], "go", label="end point")
+        plt.xlabel("Position(x)")
+        plt.ylabel("Velocity(v)")
+        plt.title(
+            f"Phase plot of 1D oscillator with time-dependent force, $\\omega = ${self.omega}"
+        )
+        plt.grid()
+        plt.legend()
+
+        savepath = "./figures"
+        os.makedirs(savepath, exist_ok=True)
+        filepath = os.path.join(savepath, f"leap frog {name} .png")
+        plt.savefig(filepath, dpi=300)
+        plt.show()
+
 
 if __name__ == "__main__":
     lf = Leapfrog(mass=1.0, k=1.0, simulation=1000, time_step=0.01)
@@ -86,3 +133,12 @@ if __name__ == "__main__":
     lf3 = Leapfrog(mass=1.0, k=5.0, simulation=1000, time_step=0.01)
     lf3.leap_frog()
     lf3.plot("k=5.0")
+
+    # phase plots with time-dependent force
+    lf4 = Leapfrog(mass=1.0, k=4.0, simulation=2000, time_step=0.01, A=1.0, o=1.5)
+    lf4.time_dependent_force(time=0.01)
+    lf4.phase_plot("k = 4.0, omega = 1.5")
+
+    lf5 = Leapfrog(mass=1.0, k=4.0, simulation=2000, time_step=0.01, A=1.0, o=2.0)
+    lf5.time_dependent_force(time=0.01)
+    lf5.phase_plot("k = 4.0, omega = 2.0")
