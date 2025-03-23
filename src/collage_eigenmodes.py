@@ -3,6 +3,7 @@ import taichi as ti
 import numpy as np
 import math as mt
 import matplotlib.pyplot as plt
+from timeit import timeit
 
 
 def eigenmode_collage(path: str):
@@ -118,8 +119,29 @@ def animate_eigenvectors(folder: str):
         )
 
 
+def benchmark_solvers():
+    print("\n\n### Solver vs Sparse Solver benchmark results: ###")
+    setup = """
+from eigenmodes import TaichiSolver, SparseSolver, Membrane
+
+L = 1.0
+h = 0.02
+membrane = Membrane.circle(L, h)
+normalsolver = TaichiSolver(membrane)
+sparsesolver = SparseSolver(membrane)
+"""
+    repeats = 10
+    print(
+        f"eigh(): {timeit("normalsolver.solve()", setup=setup, number=repeats)/repeats}"
+    )
+    print(
+        f"eigsh(): {timeit("sparsesolver.solve()", setup=setup, number=repeats)/repeats}"
+    )
+
+
 if __name__ == "__main__":
     ti.init()
     # eigenmode_collage("local/eigenmode_collage.pdf")
-    eigenfrequency_plot("local/eigenfrequencies.pdf")
+    # eigenfrequency_plot("local/eigenfrequencies.pdf")
     # animate_eigenvectors("local")
+    benchmark_solvers()
