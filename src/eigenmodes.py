@@ -1,5 +1,6 @@
 import taichi as ti
 import numpy as np
+from numpy.typing import NDArray
 from typing import Any, Self
 from scipy.linalg import eigh
 from scipy.sparse.linalg import eigsh
@@ -135,8 +136,6 @@ class Membrane:
         """
         Draw an image to `self.image`.
 
-        :param self:
-        :type self:
         :param abs_highest: The highest absolute value in the dataset.
         :type abs_highest: float
         """
@@ -165,12 +164,14 @@ class Membrane:
     @ti.kernel
     def animated_draw(self, abs_highest: float, frequency: float, t: float):
         """
-        Draw an image to `self.image`.
+        Draw an image to `self.image` to use for an animation.
 
-        :param self:
-        :type self:
         :param abs_highest: The highest absolute value in the dataset.
         :type abs_highest: float
+        :param frequency: The frequency to animate the oscillation at.
+        :type frequency: float
+        :param t: The point in time to draw.
+        :type t: float
         """
         for i, j in self.image:
             if self.cell_number[i // self.scale, j // self.scale] == 0:
@@ -201,7 +202,10 @@ class Membrane:
         Create a `self.image` field and return its resolution.
 
         :param scale: The resulting image will be `scale * self.membrane.shape`.
+        Default = 1
         :type scale: int
+        :return: The resolution of the image.
+        :rtype: tuple[int, int]
         """
         i_size, j_size = self.membrane.shape
         scaled_size = (scale * i_size, scale * j_size)
@@ -212,7 +216,8 @@ class Membrane:
         """
         Show current state of the membrane.
 
-        :param abs_highest: The highest absolute value found in the dataset. Default = 1.0
+        :param abs_highest: The highest absolute value found in the dataset.
+        Default = 1.0
         :type abs_highest: float
         """
         gui = ti.GUI("Membrane", res=self.image.shape, fast_gui=True)  # type: ignore
@@ -223,10 +228,17 @@ class Membrane:
 
     def animate(self, frequency: float, abs_highest: float = 1.0, dt: float = 1 / 60):
         """
-        Animate a vibrating eigenvector
+        Animate and show a vibrating eigenvector.
 
-        :param abs_highest: The highest absolute value found in the dataset. Default = 1.0
+        :param frequency: The frequency of the eigenmode. Affects the
+        speed that the membrane changes.
+        :type frequency: float
+        :param abs_highest: The highest absolute value found in the dataset.
+        Default = 1.0
         :type abs_highest: float
+        :param dt: The time step size. Default = 1/60, which at 60 fps could
+        be considered real time.
+        :type dt: float
         """
         gui = ti.GUI("Membrane animated", res=self.image.shape, fast_gui=True)  # type: ignore
         t = 0.0
@@ -246,10 +258,24 @@ class Membrane:
         output_dir: str = "./local",
     ):
         """
-        Animate a vibrating eigenvector and save to a file
+        Animate a vibrating eigenvector and save it to a file.
 
-        :param abs_highest: The highest absolute value found in the dataset. Default = 1.0
+        :param frequency: The frequency of the eigenmode. Affects the
+        speed that the membrane changes.
+        :type frequency: float
+        :param frames: The length of the animation in frames.
+        :type frames: int
+        :param mode_index: The number of the eigenmode animated, used in the
+        name of the saved video.
+        :type mode_index: int
+        :param abs_highest: The highest absolute value found in the dataset.
+        Default = 1.0
         :type abs_highest: float
+        :param dt: The time step size. Default = 1/60, which at 60 fps could
+        be considered real time.
+        :type dt: float
+        :param output_dir: The folder to save the video in. Default: "./local"
+        :type output_dir: str
         """
         # gui = ti.GUI("Membrane animated", res=self.image.shape, fast_gui=True, show_gui=False)  # type: ignore
         video_manager = ti.tools.VideoManager(
@@ -295,11 +321,12 @@ class TaichiSolver:
 
     @ti.kernel
     def construct_adjecency_matrix(self):
+        """Create the matrix of which the eigenvectors will be found."""
         for i, j in self.ranked_membrane:
             if self.ranked_membrane[i, j] == 0:
                 continue
             cell_rank = self.ranked_membrane[i, j] - 1
-            self.adjecency_matrix[cell_rank, cell_rank] = -4.0 * self.spatial_constant
+            self.adjecency_matrix[cell_rank, cell_rank] = -4.0 / self.spatial_constant
             for ni, nj in ti.static([[i - 1, j], [i + 1, j], [i, j - 1], [i, j + 1]]):
                 if not (
                     ni < 0
@@ -310,7 +337,7 @@ class TaichiSolver:
                 ):
                     neighbor_rank = self.ranked_membrane[ni, nj] - 1
                     self.adjecency_matrix[cell_rank, neighbor_rank] = (
-                        1.0 * self.spatial_constant
+                        1.0 / self.spatial_constant
                     )
 
     def solve(self):
@@ -323,27 +350,69 @@ class TaichiSolver:
         self.eigenvectors = np.rot90(self.eigenvectors)
 
     def show_eigenvector(self, vector_index: int):
+        """
+        Display the structure of the given eigenmode.
+
+        :param vector_index: The index of the eigenmode to show.
+        :type vector_index: int
+        """
         eigenfrequency, absolute_highest_value = self.prep_display(vector_index)
         self.membrane.show(abs_highest=absolute_highest_value)
 
     def animate_eigenvector(self, vector_index: int, dt: float = 1 / 60):
+        """
+        Display the structure of the given eigenmode, and animate it according to
+        its eigenfrequency.
+
+        :param vector_index: The index of the eigenmode to show.
+        :type vector_index: int
+        :param dt: The time step size. Default = 1/60, which at 60 fps could
+        be considered real time.
+        :type dt: float
+        """
         eigenfrequency, absolute_highest_value = self.prep_display(vector_index)
         self.membrane.animate(eigenfrequency, abs_highest=absolute_highest_value, dt=dt)
 
     def save_eigenvector_animation(
-        self, vector_index: int, dt: float = 1 / 60, output_dir: str = "local"
+        self,
+        vector_index: int,
+        frames: int,
+        dt: float = 1 / 60,
+        output_dir: str = "local",
     ):
+        """
+        Animate the structure of the given eigenmode according to
+        its eigenfrequency and save it to a file.
+
+        :param vector_index: The index of the eigenmode to show.
+        :type vector_index: int
+        :param dt: The time step size. Default = 1/60, which at 60 fps could
+        be considered real time.
+        :type dt: float
+        :param output_dir: The folder to save the video in.
+        :type output_dir: str
+        """
         eigenfrequency, absolute_highest_value = self.prep_display(vector_index)
         self.membrane.save_animation(
             eigenfrequency,
-            60 * 30,
+            frames,
             vector_index,
             abs_highest=absolute_highest_value,
             dt=dt,
             output_dir=output_dir,
         )
 
-    def prep_display(self, vector_index):
+    def prep_display(self, vector_index: int) -> tuple[float, float]:
+        """
+        A helper function to prepare the `self.membrane` to show the given
+        eigenvector.
+
+        :param vector_index: The index of the eigenmode to show.
+        :type vector_index:
+        :return: A tuple containing: the eigenfrequency of the vector, and
+        the absolute highest value found in the eigenvector.
+        :rtype: tuple[float, float]
+        """
         vector_to_show = self.eigenvectors[vector_index]
         eigenfrequency = np.sqrt(-self.eigenvalues[vector_index])
 
@@ -351,7 +420,13 @@ class TaichiSolver:
         absolute_highest_value = max(abs(min(vector_to_show)), abs(max(vector_to_show)))
         return eigenfrequency, absolute_highest_value
 
-    def load_into_membrane(self, eigenvector):
+    def load_into_membrane(self, eigenvector: NDArray):
+        """
+        Copies the given eigenvector into the `self.membrane`.
+
+        :param eigenvector: The eigenvector to copy into the membrane.
+        :type eigenvector: NDArray
+        """
         for i, j in np.ndindex(self.membrane.membrane.shape):
             if self.ranked_membrane[i, j] == 0:
                 continue
@@ -391,4 +466,4 @@ if __name__ == "__main__":
     print(f"{mem.cell_count = }")
     spsolver = SparseSolver(mem)
     spsolver.solve()
-    spsolver.save_eigenvector_animation(6, dt=10.0)
+    spsolver.save_eigenvector_animation(6, 60 * 30, dt=10.0)

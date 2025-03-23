@@ -9,14 +9,14 @@
   - Putting any files in any folder named "local" will keep those files out of the repository.
   - Any graphs meant for the report can be put in another folder.
 
-Animations of a circular membrane, $L=1.0$, $h=0.02$, $600\times$ speed.
+Animations of a circular membrane, $L=1.0$, $h=0.02$, $1 / 4\times$ speed.
 | | Collage of eigenmodes: | |
 |---|---|---|
-| Eigenmode 0, frequency 0.00194: | Eigenmode 1, frequency 0.00308: | Eigenmode 2, frequency 0.00308: |
+| Eigenmode 0, frequency 4.84: | Eigenmode 1, frequency 7.71: | Eigenmode 2, frequency 7.71: |
 | ![Circular eigenmode 0](figures/Circle_50_50_0.gif) | ![Circular eigenmode 1](figures/Circle_50_50_1.gif) | ![Circular eigenmode 2](figures/Circle_50_50_2.gif) |
-| Eigenmode 3, frequency 0.00413: | Eigenmode 4, frequency 0.00413: | Eigenmode 5, frequency 0.00444: |
+| Eigenmode 3, frequency 10.32: | Eigenmode 4, frequency 10.32: | Eigenmode 5, frequency 11.09: |
 | ![Circular eigenmode 3](figures/Circle_50_50_3.gif) | ![Circular eigenmode 4](figures/Circle_50_50_4.gif) | ![Circular eigenmode 5](figures/Circle_50_50_5.gif) |
-| Eigenmode 6, frequency 0.00513: | | |
+| Eigenmode 6, frequency 12.81: | | |
 | ![Circular eigenmode 6](figures/Circle_50_50_6.gif) | | |
 
 ## Type hint examples:
