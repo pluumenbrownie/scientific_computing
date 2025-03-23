@@ -135,7 +135,7 @@ sparsesolver = SparseSolver(membrane)
         f"eigh(): {timeit("normalsolver.solve()", setup=setup, number=repeats)/repeats}"
     )
     print(
-        f"eigsh(): {timeit("sparsesolver.solve()", setup=setup, number=repeats)/repeats}"
+        f"eigsh(): {timeit("sparsesolver.solve(k=7)", setup=setup, number=repeats)/repeats}"
     )
 
 
