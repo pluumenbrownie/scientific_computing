@@ -326,7 +326,7 @@ class TaichiSolver:
             if self.ranked_membrane[i, j] == 0:
                 continue
             cell_rank = self.ranked_membrane[i, j] - 1
-            self.adjecency_matrix[cell_rank, cell_rank] = -4.0 * self.spatial_constant
+            self.adjecency_matrix[cell_rank, cell_rank] = -4.0 / self.spatial_constant
             for ni, nj in ti.static([[i - 1, j], [i + 1, j], [i, j - 1], [i, j + 1]]):
                 if not (
                     ni < 0
@@ -337,7 +337,7 @@ class TaichiSolver:
                 ):
                     neighbor_rank = self.ranked_membrane[ni, nj] - 1
                     self.adjecency_matrix[cell_rank, neighbor_rank] = (
-                        1.0 * self.spatial_constant
+                        1.0 / self.spatial_constant
                     )
 
     def solve(self):
