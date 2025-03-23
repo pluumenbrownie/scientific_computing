@@ -39,3 +39,5 @@ if __name__ == "__main__":
     lf5 = Leapfrog(mass=1.0, k=4.0, simulation=2000, time_step=0.01, A=1.0, o=2.0)
     lf5.time_dependent_force(time=0.01)
     lf5.phase_plot("k = 4.0, omega = 2.0")
+
+    benchmark_solvers()

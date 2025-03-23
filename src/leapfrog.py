@@ -107,6 +107,7 @@ class Leapfrog:
         filepath = os.path.join(savepath, f"leap frog {name} .png")
         plt.savefig(filepath, dpi=300)
         plt.show()
+        plt.close()
 
     def phase_plot(self, name: str):
         """
@@ -133,6 +134,7 @@ class Leapfrog:
         filepath = os.path.join(savepath, f"leap frog {name} .png")
         plt.savefig(filepath, dpi=300)
         plt.show()
+        plt.close()
 
 
 if __name__ == "__main__":

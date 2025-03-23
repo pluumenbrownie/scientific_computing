@@ -141,6 +141,7 @@ class direct_method:
         filepath = os.path.join(savepath, "steady_concentration.png")
         plt.savefig(filepath, dpi=300)
         plt.show()
+        plt.close()
 
 
 if __name__ == "__main__":
