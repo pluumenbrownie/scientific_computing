@@ -123,14 +123,18 @@ class direct_method:
             color="red",
             fill=False,
             linestyle="dashed",
+            linewidth=2,
             label="circular boundary",
         )
         plt.gca().add_patch(boundary)  # plot the boundary in the figure
-        plt.colorbar(label="Concentration")
-        plt.xlabel("x coordinate")
-        plt.ylabel("y coordinate")
-        plt.title("Steady State Concentration under Direct Method")
-        plt.legend(loc="lower right")
+        cbar = plt.colorbar()
+        cbar.set_label("Concentration", fontsize=14)
+        plt.xlabel("x coordinate", fontsize=14)
+        plt.ylabel("y coordinate", fontsize=14)
+        plt.title("Steady State Concentration under Direct Method", fontsize=14)
+        plt.legend(loc="lower right", fontsize=12)
+        plt.xticks(fontsize=12)
+        plt.yticks(fontsize=12)
 
         savepath = "./figures"
         os.makedirs(savepath, exist_ok=True)
