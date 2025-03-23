@@ -94,11 +94,13 @@ class Leapfrog:
             self.velocity,
             label="Velocity (v)",
         )
-        plt.xlabel("Time")
-        plt.ylabel("Value")
-        plt.title(f"Leap-Frog Integration of Oscillatory Motion, {name}")
-        plt.legend()
+        plt.xlabel("Time", fontsize=14)
+        plt.ylabel("Value", fontsize=14)
+        plt.title(f"Leap-Frog Integration of Oscillatory Motion, {name}", fontsize=14)
+        plt.legend(fontsize=12)
         plt.grid()
+        plt.xticks(fontsize=12)
+        plt.yticks(fontsize=12)
 
         savepath = "./figures"
         os.makedirs(savepath, exist_ok=True)
@@ -115,13 +117,16 @@ class Leapfrog:
         plt.plot(self.position, self.velocity, label="Phase trajectory")
         plt.plot(self.position[0], self.velocity[0], "ro", label="start point")
         plt.plot(self.position[-1], self.velocity[-1], "go", label="end point")
-        plt.xlabel("Position(x)")
-        plt.ylabel("Velocity(v)")
+        plt.xlabel("Position(x)", fontsize=14)
+        plt.ylabel("Velocity(v)", fontsize=14)
         plt.title(
-            f"Phase plot of 1D oscillator with time-dependent force, $\\omega = ${self.omega}"
+            f"Phase plot of 1D oscillator with time-dependent force, $\\omega = ${self.omega}",
+            fontsize=14,
         )
         plt.grid()
-        plt.legend()
+        plt.legend(fontsize=12)
+        plt.xticks(fontsize=12)
+        plt.yticks(fontsize=12)
 
         savepath = "./figures"
         os.makedirs(savepath, exist_ok=True)
